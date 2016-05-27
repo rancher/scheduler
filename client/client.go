@@ -108,7 +108,8 @@ func GetContainersOnHost(hostId string, envId string) ([]client.Container, error
 
 	containerCollection, err := clientPtr.Container.List(opts)
 	if err != nil {
-		return nil, fmt.Errorf("Coudln't get container list on host by id [%s]. Error: %#v", hostId, err)
+		return nil, fmt.Errorf("Coudln't get container list on host by id [%s]. Error: %#v",
+			hostId, err)
 	}
 
 	// filters by hostId, which opts does not support
@@ -150,7 +151,8 @@ func GetVMsOnHost(hostId string, envId string) ([]client.VirtualMachine, error) 
 
 	vmCollection, err := clientPtr.VirtualMachine.List(opts)
 	if err != nil {
-		return nil, fmt.Errorf("Coudln't get vm instance list on host by id [%s]. Error: %#v", hostId, err)
+		return nil, fmt.Errorf("Coudln't get vm instance list on host by id [%s]. Error: %#v",
+			hostId, err)
 	}
 
 	// filters by hostId, which opts does not support

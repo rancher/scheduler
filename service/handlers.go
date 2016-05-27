@@ -16,7 +16,8 @@ type Response struct {
 	Schedule string `json:"schedule"`
 }
 
-//ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
+// ScheduleCPUMemory is a handler for route /cpu and returns a collection of host
+// ids that can be scheduled on
 func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 	log.Info("ScheduleCPUMemory called")
 
@@ -76,7 +77,8 @@ func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 	api.GetApiContext(r).Write(&resp)
 }
 
-//ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
+// AllocateCPUMemory is a handler for route /cpu and returns a collection of host ids that
+// can be scheduled on
 func AllocateCPUMemory(w http.ResponseWriter, r *http.Request) {
 	log.Info("AllocateCPUMemory called")
 
@@ -102,7 +104,8 @@ func AllocateCPUMemory(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-//ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
+// DeallocateCPUMemory is a handler for route /cpu and returns a collection of host ids that can
+// be scheduled on
 func DeallocateCPUMemory(w http.ResponseWriter, r *http.Request) {
 	log.Info("DeallocateCPUMemory called")
 

@@ -36,7 +36,7 @@ type HostInfo struct {
 }
 
 const (
-	DefaultDiskPath = "default"
+	DefaultDiskPath      = "default"
 	DivisionFactorOfVcpu = 2
 )
 
@@ -64,7 +64,8 @@ func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, ins
 		return
 	}
 
-	log.Infof("allocate iops for instance id: %s, on host id: %s, readIopsReserved: %d, writeIopsReserved: %d", instanceId, host.HostId, readIopsReserved, writeIopsReserved)
+	log.Infof("allocate iops for instance id: %s, on host id: %s, readIopsReserved: %d, writeIopsReserved: %d",
+		instanceId, host.HostId, readIopsReserved, writeIopsReserved)
 
 	// account for resource used by this instance. disk has to exist during GetHostInfo() call
 	diskInfo, ok := host.Disks[DefaultDiskPath]
@@ -74,7 +75,8 @@ func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, ins
 	}
 	diskInfo.Iops.ReadAllocated += readIopsReserved
 	diskInfo.Iops.WriteAllocated += writeIopsReserved
-	log.Infof("host id:%s, after allocation, ReadAllocated: %d, WriteAllocated: %d", host.HostId, diskInfo.Iops.ReadAllocated, diskInfo.Iops.WriteAllocated)
+	log.Infof("host id:%s, after allocation, ReadAllocated: %d, WriteAllocated: %d", host.HostId,
+		diskInfo.Iops.ReadAllocated, diskInfo.Iops.WriteAllocated)
 
 	// now cache reserved info for deallocation
 	instanceInfo, ok := host.Instances[instanceId]
@@ -103,7 +105,8 @@ func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
 	}
 	readIopsReserved := diskReserved.ReadIopsReserved
 	writeIopsReserved := diskReserved.WriteIopsReserved
-	log.Infof("deallocate iops for instance id: %s, on host id: %s, readIopsReserved: %d, writeIopsReserved: %d", instanceId, host.HostId, readIopsReserved, writeIopsReserved)
+	log.Infof("deallocate iops for instance id: %s, on host id: %s, readIopsReserved: %d, writeIopsReserved: %d",
+		instanceId, host.HostId, readIopsReserved, writeIopsReserved)
 
 	// account for resource used by this instance
 	diskInfo, ok := host.Disks[DefaultDiskPath]
@@ -112,7 +115,8 @@ func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
 	}
 	diskInfo.Iops.ReadAllocated -= readIopsReserved
 	diskInfo.Iops.WriteAllocated -= writeIopsReserved
-	log.Infof("host id:%s, after deallocation, ReadAllocated: %d, WriteAllocated: %d", host.HostId, diskInfo.Iops.ReadAllocated, diskInfo.Iops.WriteAllocated)
+	log.Infof("host id:%s, after deallocation, ReadAllocated: %d, WriteAllocated: %d", host.HostId,
+		diskInfo.Iops.ReadAllocated, diskInfo.Iops.WriteAllocated)
 
 	// remove a disksReserved map entry for instance
 	delete(instanceInfo.DisksReservedMap, DefaultDiskPath)
@@ -162,12 +166,14 @@ func (host *HostInfo) AllocateCPUMemoryForVM(vm *rancherClient.VirtualMachine) {
 	cpuReserved := float64(vm.Vcpu) / DivisionFactorOfVcpu
 	memReserved := float64(vm.MemoryMb)
 	log.Infof("cpuReserved: %f, memReserved: %f", cpuReserved, memReserved)
-	log.Infof("allocate cpu and memory for vm id: %s, on host id: %s, cpuReserved: %f, memReserved: %f", vm.Id, host.HostId, cpuReserved, memReserved)
+	log.Infof("allocate cpu and memory for vm id: %s, on host id: %s, cpuReserved: %f, memReserved: %f",
+		vm.Id, host.HostId, cpuReserved, memReserved)
 
 	// account for cpu/mem resource used by this instance
 	host.CpuUsed += cpuReserved
 	host.MemUsedInMB += memReserved
-	log.Infof("host id: %s, after allocation, CpuUsed: %f, memReserved: %f", host.HostId, host.CpuUsed, host.MemUsedInMB)
+	log.Infof("host id: %s, after allocation, CpuUsed: %f, memReserved: %f", host.HostId,
+		host.CpuUsed, host.MemUsedInMB)
 
 	// update instanceInfo if exists or create a new one
 	instanceInfo, ok := host.Instances[vm.Id]
@@ -187,11 +193,13 @@ func (host *HostInfo) DeallocateCPUMemoryForVM(instanceId string) {
 	}
 	cpuReserved := instanceInfo.CpuReserved
 	memReserved := instanceInfo.MemReservedInMB
-	log.Infof("deallocate cpu and memory for instance id: %s, on host id: %s, cpuReserved: %f, memReserved: %f", instanceId, host.HostId, cpuReserved, memReserved)
+	log.Infof("deallocate cpu and memory for instance id: %s, on host id: %s, cpuReserved: %f, memReserved: %f",
+		instanceId, host.HostId, cpuReserved, memReserved)
 
 	host.CpuUsed -= cpuReserved
 	host.MemUsedInMB -= memReserved
-	log.Infof("host id:%s, after deallocation, CpuUsed: %f, MemUsedInMB: %f", host.HostId, host.CpuUsed, host.MemUsedInMB)
+	log.Infof("host id:%s, after deallocation, CpuUsed: %f, MemUsedInMB: %f", host.HostId,
+		host.CpuUsed, host.MemUsedInMB)
 }
 
 func (host *HostInfo) RemoveInstanceInfo(instanceId string) {

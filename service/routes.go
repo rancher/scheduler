@@ -35,7 +35,8 @@ func (httpWrapper *MuxWrapper) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		httpWrapper.Router.ServeHTTP(w, r)
 	} else {
 		log.Debugf("Service Unavailable")
-		ReturnHTTPError(w, r, http.StatusServiceUnavailable, "Service is not yet available, please try again later")
+		ReturnHTTPError(w, r, http.StatusServiceUnavailable,
+			"Service is not yet available, please try again later")
 	}
 }
 
