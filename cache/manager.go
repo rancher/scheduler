@@ -75,28 +75,53 @@ func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
 	hostInfo.Instances = make(map[string]*InstanceInfo)
 
 	// get cpu count
-	info, _ := host.Info.(map[string]interface{})
-	cpuInfo := info["cpuInfo"].(map[string]interface{})
-	cpuCount := cpuInfo["count"].(float64)
-	log.Info("cpu count: ", cpuCount)
+	var cpuCount float64
+	info, ok := host.Info.(map[string]interface{})
+	if !ok {
+		return hostInfo
+	}
+	cpuInfo, ok := info["cpuInfo"].(map[string]interface{})
+	if ok {
+		cpuCount, ok = cpuInfo["count"].(float64)
+		if ok {
+			log.Info("cpu count: ", cpuCount)
+		}
+	}
 
 	// get memory total in MB
-	memInfo := info["memoryInfo"].(map[string]interface{})
-	memTotal := memInfo["memTotal"].(float64)
-	log.Info("memTotal: ", memTotal)
-
-	// get iops, we just use the first device
-	iopsInfo := info["iopsInfo"].(map[string]interface{})
-	for k, v := range iopsInfo {
-		iops := v.(map[string]interface{})
-		readIops := iops["read"].(float64)
-		writeIops := iops["write"].(float64)
-		k = DefaultDiskPath // just set it to default for now
-		hostInfo.Disks[k] = &DiskInfo{k, IopsInfo{ReadTotal: uint64(readIops), WriteTotal: uint64(writeIops)}}
+	var memTotal float64
+	memInfo, ok := info["memoryInfo"].(map[string]interface{})
+	if ok {
+		memTotal, ok = memInfo["memTotal"].(float64)
+		if ok {
+			log.Info("memTotal: ", memTotal)
+		}
 	}
 
 	hostInfo.CpuTotalCount = cpuCount
 	hostInfo.MemTotalInMB = memTotal
+
+	// get iops, we just use the first device
+	iopsInfo, ok := info["iopsInfo"].(map[string]interface{})
+	if !ok {
+		return hostInfo
+	}
+	for k, v := range iopsInfo {
+		iops, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		readIops, ok := iops["read"].(float64)
+		if !ok {
+			continue
+		}
+		writeIops := iops["write"].(float64)
+		if !ok {
+			continue
+		}
+		k = DefaultDiskPath // just set it to default for now
+		hostInfo.Disks[k] = &DiskInfo{k, IopsInfo{ReadTotal: uint64(readIops), WriteTotal: uint64(writeIops)}}
+	}
 
 	return hostInfo
 }
