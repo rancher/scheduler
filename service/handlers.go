@@ -205,7 +205,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 		diskInfo, ok := hostInfo.Disks[cache.DefaultDiskPath]
 		if !ok {
 			log.Info("no disk on host for disk path:", cache.DefaultDiskPath)
-			api.GetApiContext(r).Write(&resp)
+			api.GetApiContext(r).Write(&respNo)
 			return
 		}
 		freeReadIops := diskInfo.Iops.ReadTotal - diskInfo.Iops.ReadAllocated
@@ -220,7 +220,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 		diskInfo, ok := hostInfo.Disks[cache.DefaultDiskPath]
 		if !ok {
 			log.Info("no disk on host for disk path:", cache.DefaultDiskPath)
-			api.GetApiContext(r).Write(&resp)
+			api.GetApiContext(r).Write(&respNo)
 			return
 		}
 		freeWriteIops := diskInfo.Iops.WriteTotal - diskInfo.Iops.WriteAllocated

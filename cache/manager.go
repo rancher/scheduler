@@ -121,6 +121,7 @@ func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
 		}
 		k = DefaultDiskPath // just set it to default for now
 		hostInfo.Disks[k] = &DiskInfo{k, IopsInfo{ReadTotal: uint64(readIops), WriteTotal: uint64(writeIops)}}
+		log.Infof("ReadTotal IOPS: %d, WriteTotal IOPS: %d, Disk Path: %s", uint64(readIops), uint64(writeIops), k)
 	}
 
 	return hostInfo
