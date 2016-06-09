@@ -119,7 +119,7 @@ func GetContainersOnHost(hostId string, envId string) ([]client.Container, error
 			containerList = append(containerList, container)
 		}
 	}
-	log.Infof("got all the containers with hostId %s", hostId)
+
 	return containerList, nil
 }
 
@@ -162,6 +162,6 @@ func GetVMsOnHost(hostId string, envId string) ([]client.VirtualMachine, error) 
 			vmList = append(vmList, vm)
 		}
 	}
-	log.Infof("got all the vm instances with hostId %s", hostId)
+
 	return vmList, nil
 }

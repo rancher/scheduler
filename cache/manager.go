@@ -35,7 +35,9 @@ func (mgr *cacheManager) GetHostInfo(hostId string, envId string) *HostInfo {
 		env.HostInfos = make(map[string]*HostInfo)
 	}
 	hostInfo, ok := env.HostInfos[hostId]
-	if !ok {
+
+	// either host cache does not exist or not complete last time loaded
+	if !ok || hostInfo.NotCompleteLoaded {
 		// get the host from cattle and cache it if it is a valid id
 		host, err := schedulerClient.GetHost(hostId)
 		if err != nil || host == nil {
@@ -68,6 +70,8 @@ func RemoveHostInfoFromCache() {
 }
 
 func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
+	log.Infof("Loading host id: %s resource information to cache ...", host.Id)
+
 	// there are several types of resources we need to load into cache
 	// cpu, memory, iops
 	hostInfo := &HostInfo{HostId: host.Id, EnvId: host.AccountId}
@@ -100,6 +104,10 @@ func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
 
 	hostInfo.CpuTotalCount = cpuCount
 	hostInfo.MemTotalInMB = memTotal
+	if cpuCount == 0 || memTotal == 0 {
+		hostInfo.NotCompleteLoaded = true
+		log.Info("either cpu count or memory total is not loaded completely")
+	}
 
 	// get iops, we just use the first device
 	iopsInfo, ok := info["iopsInfo"].(map[string]interface{})
@@ -123,6 +131,11 @@ func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
 		hostInfo.Disks[k] = &DiskInfo{k, IopsInfo{ReadTotal: uint64(readIops), WriteTotal: uint64(writeIops)}}
 		log.Infof("ReadTotal IOPS: %d, WriteTotal IOPS: %d, Disk Path: %s", uint64(readIops), uint64(writeIops), k)
 	}
+	if len(iopsInfo) == 0 {
+		hostInfo.NotCompleteLoaded = true
+		log.Info("iopsInfo is not loaded completely")
+	}
+	log.Infof("Done loading host id: %s resource information to cache", host.Id)
 
 	return hostInfo
 }
