@@ -21,12 +21,13 @@ type DiskInfo struct {
 }
 
 type HostInfo struct {
-	HostId        string
-	EnvId         string
-	CpuTotalCount float64
-	CpuUsed       float64
-	MemTotalInMB  float64
-	MemUsedInMB   float64
+	HostId            string
+	EnvId             string
+	CpuTotalCount     float64
+	CpuUsed           float64
+	MemTotalInMB      float64
+	MemUsedInMB       float64
+	NotCompleteLoaded bool
 
 	// key: device path (/dev/sda) without /dev prefix
 	Disks map[string]*DiskInfo
