@@ -1,0 +1,11 @@
+import:
+- package: github.com/gorilla/mux
+  version: 9fa818a44c2bf1396a17f9d5a3c0f6dd39d2ff8e
+- package: github.com/gorilla/websocket
+  version: a68708917c6a4f06314ab4e52493cc61359c9d42
+- package: github.com/gorilla/context
+  version: aed02d124ae4a0e94fea4541c8effd05bf0c8296
+- package: github.com/rancher/go-rancher
+  version: 6f68a5fa617dca7db1a509c2a789c1fffaca7b19
+- package: github.com/Sirupsen/logrus
+  version: f3cfb454f4c209e6668c95216c4744b8fddb2356
