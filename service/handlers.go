@@ -59,7 +59,7 @@ func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Infof("Enough cpu. require: %f, available: %f", cpuRequired, freeCpu)
-	log.Infof("scheduler could accomodate cpu for vm")
+	log.Info("scheduler could accomodate cpu for vm")
 
 	memRequiredMB := float64(vm.MemoryMb)
 	log.Infof("required memRequiredMB: %f", memRequiredMB)
@@ -72,7 +72,7 @@ func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Infof("Enough memory. require: %f, available: %f", memRequiredMB, freeMem)
-	log.Infof("scheduler could accomodate memory for vm")
+	log.Info("scheduler could accomodate memory for vm")
 
 	api.GetApiContext(r).Write(&resp)
 }
@@ -232,7 +232,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 		log.Infof("Enough write iops. require: %d, available: %d", writeIopsRequired, freeWriteIops)
 	}
 
-	log.Infof("scheduler could accomodate iops for instance")
+	log.Info("scheduler could accomodate iops for instance")
 
 	api.GetApiContext(r).Write(&resp)
 }
