@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+cd $(dirname $0)/..
+
+if [ ! -e bin/scheduler ]; then
+    ./scripts/build
+fi
+
+mkdir -p dist/artifacts
+cd bin/
+tar cvJf ../dist/artifacts/scheduler.tar.xz .
