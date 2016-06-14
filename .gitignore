@@ -1,7 +1,4 @@
-main
-debug
-bin
-vendor
-LICENSE
-Makefile
-trash.yml
+/.dapper
+/bin
+*.swp
+/.trash-cache
