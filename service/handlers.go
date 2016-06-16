@@ -13,7 +13,7 @@ import (
 
 type Response struct {
 	rancherClient.Resource
-	Schedule string `json:"schedule"`
+	Schedule []string `json:"schedule"`
 }
 
 // ScheduleCPUMemory is a handler for route /cpu and returns a collection of host
@@ -21,29 +21,43 @@ type Response struct {
 func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 	log.Info("ScheduleCPUMemory called")
 
-	hostId := r.FormValue("hostId")
+	r.ParseForm()
+	hostIds := r.Form["hostIds"]
 	vmId := r.FormValue("vmId")
 	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, vmId:%s, envId: %s", hostId, vmId, envId)
+	response := make([]string, 0)
 
-	// response no means can't accomodate scheduling resource, all other cases,
-	// we just say yes due to all conditions
-	respNo := Response{rancherClient.Resource{Type: "schedule"}, "no"}
-	resp := Response{rancherClient.Resource{Type: "schedule"}, "yes"}
+	for _, hostId := range hostIds {
+		isSchedulable := ScheduleCPUMemoryOnHost(hostId, vmId, envId)
+		if isSchedulable {
+			response = append(response, hostId)
+		}
+	}
+	api.GetApiContext(r).Write(&Response{rancherClient.Resource{Type: "schedule"}, response})
+	return
+}
+
+
+// ScheduleCPUMemory is a handler for route /cpu and returns a collection of host
+// ids that can be scheduled on
+func ScheduleCPUMemoryOnHost(hostId string, vmId string, envId string) bool {
+	log.Infof("scheduling VM vmId:%s, against hostid: %s, envId: %s", vmId, hostId, envId)
+
+	// return false means can't accomodate scheduling resource,
+	// default to true for all other conditions
+	retVal := true
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
 		log.Info("can't get host id:", hostId)
-		api.GetApiContext(r).Write(&resp)
-		return
+		return retVal
 	}
 
 	// get the VM by id
 	vm, err := client.GetVM(vmId)
 	if err != nil || vm == nil {
-		api.GetApiContext(r).Write(&resp)
-		return
+		return retVal
 	}
 	log.Infof("vm name: %s, vm instance id: %s", vm.Name, vm.Id)
 
@@ -55,8 +69,7 @@ func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 	freeCpu := hostInfo.CpuTotalCount - hostInfo.CpuUsed
 	if freeCpu < cpuRequired {
 		log.Infof("not enough cpu. require: %f, available: %f", cpuRequired, freeCpu)
-		api.GetApiContext(r).Write(&respNo)
-		return
+		return false
 	}
 	log.Infof("Enough cpu. require: %f, available: %f", cpuRequired, freeCpu)
 	log.Info("scheduler could accomodate cpu for vm")
@@ -68,13 +81,12 @@ func ScheduleCPUMemory(w http.ResponseWriter, r *http.Request) {
 	freeMem := hostInfo.MemTotalInMB - hostInfo.MemUsedInMB
 	if freeMem < memRequiredMB {
 		log.Infof("not enough memory. require: %f, available: %f", memRequiredMB, freeMem)
-		api.GetApiContext(r).Write(&respNo)
-		return
+		return false
 	}
 	log.Infof("Enough memory. require: %f, available: %f", memRequiredMB, freeMem)
 	log.Info("scheduler could accomodate memory for vm")
 
-	api.GetApiContext(r).Write(&resp)
+	return retVal
 }
 
 // AllocateCPUMemory is a handler for route /cpu and returns a collection of host ids that
@@ -131,25 +143,40 @@ func DeallocateCPUMemory(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+
 //ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
 func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 	log.Info("ScheduleIops called")
 
-	hostId := r.FormValue("hostId")
+	r.ParseForm()
+	hostIds := r.Form["hostIds"]
 	instanceId := r.FormValue("instanceId")
 	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, instanceId:%s, envId: %s", hostId, instanceId, envId)
+	response := make([]string, 0)
 
-	// response no means can't accomodate scheduling resource, all other cases,
-	// we just say yes due to all conditions
-	respNo := Response{rancherClient.Resource{Type: "schedule"}, "no"}
-	resp := Response{rancherClient.Resource{Type: "schedule"}, "yes"}
+	for _, hostId := range hostIds {
+		isSchedulable := ScheduleIopsOnHost(hostId, instanceId, envId)
+		if isSchedulable {
+			response = append(response, hostId)
+		}
+	}
+	api.GetApiContext(r).Write(&Response{rancherClient.Resource{Type: "schedule"}, response})
+	return
+}
+
+
+//ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
+func ScheduleIopsOnHost(hostId string, instanceId string, envId string) bool {
+	log.Infof("scheduling instance instanceId:%s, against hostid: %s, envId: %s", instanceId, hostId, envId)
+
+	// return false means can't accomodate scheduling resource,
+	// default to true for all other conditions
+	retVal := true
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		api.GetApiContext(r).Write(&resp)
-		return
+		return retVal
 	}
 
 	var labels map[string]interface{}
@@ -157,8 +184,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 	// schedule iops for both container and vm
 	container, err := client.GetContainer(instanceId)
 	if err != nil {
-		api.GetApiContext(r).Write(&resp)
-		return
+		return retVal
 	}
 	if container != nil {
 		labels = container.Labels
@@ -166,8 +192,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 	} else {
 		vm, err := client.GetVM(instanceId)
 		if err != nil {
-			api.GetApiContext(r).Write(&resp)
-			return
+			return retVal
 		}
 		if vm != nil {
 			labels = vm.Labels
@@ -195,8 +220,7 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 	}
 	if !hasReadIopsLabel && !hasWriteIopsLabel {
 		log.Info("no iops labels")
-		api.GetApiContext(r).Write(&resp)
-		return
+		return retVal
 	}
 	log.Infof("readIopsRequired: %d, writeIopsRequired: %d", readIopsRequired, writeIopsRequired)
 
@@ -205,14 +229,12 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 		diskInfo, ok := hostInfo.Disks[cache.DefaultDiskPath]
 		if !ok {
 			log.Info("no disk on host for disk path:", cache.DefaultDiskPath)
-			api.GetApiContext(r).Write(&respNo)
-			return
+			return false
 		}
 		freeReadIops := diskInfo.Iops.ReadTotal - diskInfo.Iops.ReadAllocated
 		if freeReadIops < readIopsRequired {
 			log.Infof("not enough read iops. require: %d, available: %d", readIopsRequired, freeReadIops)
-			api.GetApiContext(r).Write(&respNo)
-			return
+			return false
 		}
 		log.Infof("Enough read iops. require: %d, available: %d", readIopsRequired, freeReadIops)
 	}
@@ -220,21 +242,19 @@ func ScheduleIops(w http.ResponseWriter, r *http.Request) {
 		diskInfo, ok := hostInfo.Disks[cache.DefaultDiskPath]
 		if !ok {
 			log.Info("no disk on host for disk path:", cache.DefaultDiskPath)
-			api.GetApiContext(r).Write(&respNo)
-			return
+			return false
 		}
 		freeWriteIops := diskInfo.Iops.WriteTotal - diskInfo.Iops.WriteAllocated
 		if freeWriteIops < writeIopsRequired {
 			log.Infof("not enough write iops. require: %d, available: %d", writeIopsRequired, freeWriteIops)
-			api.GetApiContext(r).Write(&respNo)
-			return
+			return false
 		}
 		log.Infof("Enough write iops. require: %d, available: %d", writeIopsRequired, freeWriteIops)
 	}
 
 	log.Info("scheduler could accomodate iops for instance")
 
-	api.GetApiContext(r).Write(&resp)
+	return retVal
 }
 
 //ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
