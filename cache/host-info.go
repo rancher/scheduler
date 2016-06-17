@@ -125,8 +125,11 @@ func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
 
 // instance resources are iops
 func (host *HostInfo) loadAllocatedContainerResource() error {
+	log.Infof("Loading all allocated container resouces on the host id: %s ...", host.HostId)
+
 	containerList, err := schedulerClient.GetContainersOnHost(host.HostId, host.EnvId)
 	if err != nil || containerList == nil || len(containerList) == 0 {
+		log.Infof("No containers on the host id: %s", host.HostId)
 		return err
 	}
 	for _, container := range containerList {
@@ -135,16 +138,20 @@ func (host *HostInfo) loadAllocatedContainerResource() error {
 		// allocate resource for this container. container now just uses iops, no cpu/mem
 		host.AllocateIopsForInstance(container.Labels, container.Id)
 	}
+	log.Infof("Done loading all allocated container resouces on the host id: %s", host.HostId)
 
 	return nil
 }
 
 // VM resources are cpu/mem
 func (host *HostInfo) loadAllocatedVMResource() error {
+	log.Infof("Loading all allocated VM resouces on the host id: %s ...", host.HostId)
+
 	// first time we need to get all the container instances from cattle
 	// scheduled on that host
 	vmList, err := schedulerClient.GetVMsOnHost(host.HostId, host.EnvId)
 	if err != nil || vmList == nil || len(vmList) == 0 {
+		log.Infof("No VMs on the host id: %s", host.HostId)
 		return err
 	}
 	for _, vm := range vmList {
@@ -156,6 +163,7 @@ func (host *HostInfo) loadAllocatedVMResource() error {
 		// vm could reserve iops
 		host.AllocateIopsForInstance(vm.Labels, vm.Id)
 	}
+	log.Infof("Done loading all allocated VM resouces on the host id: %s", host.HostId)
 
 	return nil
 }

@@ -61,7 +61,7 @@ func ReturnHTTPError(w http.ResponseWriter, r *http.Request, httpStatus int, err
 func NewRouter() *mux.Router {
 	schemas = &client.Schemas{}
 
-	// ApiVersion
+	// add return types
 	schemas.AddType("schedule", Response{})
 
 	// API framework routes
@@ -86,10 +86,10 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
-		"ScheduleCPUMemory",
+		"Schedule",
 		"POST",
-		"/v1-scheduler/cpu-memory",
-		ScheduleCPUMemory,
+		"/v1-scheduler",
+		Schedule,
 	},
 	Route{
 		"AllocateCPUMemory",
@@ -102,12 +102,6 @@ var routes = Routes{
 		"POST",
 		"/v1-scheduler/deallocate-cpu-memory",
 		DeallocateCPUMemory,
-	},
-	Route{
-		"ScheduleIops",
-		"POST",
-		"/v1-scheduler/iops",
-		ScheduleIops,
 	},
 	Route{
 		"AllocateIops",
