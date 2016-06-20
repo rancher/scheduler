@@ -61,8 +61,9 @@ func ReturnHTTPError(w http.ResponseWriter, r *http.Request, httpStatus int, err
 func NewRouter() *mux.Router {
 	schemas = &client.Schemas{}
 
-	// ApiVersion
-	schemas.AddType("schedule", Response{})
+	// add return types
+	schemas.AddType("scheduler", ScheduleResponse{})
+	schemas.AddType("scheduler", ModifyResponse{})
 
 	// API framework routes
 	router := mux.NewRouter().StrictSlash(true)
@@ -86,40 +87,22 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
-		"ScheduleCPUMemory",
+		"Schedule",
 		"POST",
-		"/v1-scheduler/cpu-memory",
-		ScheduleCPUMemory,
+		"/v1-scheduler/schedule",
+		Schedule,
 	},
 	Route{
-		"AllocateCPUMemory",
+		"Allocate",
 		"POST",
-		"/v1-scheduler/allocate-cpu-memory",
-		AllocateCPUMemory,
+		"/v1-scheduler/allocate",
+		Allocate,
 	},
 	Route{
-		"DeallocateCPUMemory",
+		"Deallocate",
 		"POST",
-		"/v1-scheduler/deallocate-cpu-memory",
-		DeallocateCPUMemory,
-	},
-	Route{
-		"ScheduleIops",
-		"POST",
-		"/v1-scheduler/iops",
-		ScheduleIops,
-	},
-	Route{
-		"AllocateIops",
-		"POST",
-		"/v1-scheduler/allocate-iops",
-		AllocateIops,
-	},
-	Route{
-		"DeallocateIops",
-		"POST",
-		"/v1-scheduler/deallocate-iops",
-		DeallocateIops,
+		"/v1-scheduler/deallocate",
+		Deallocate,
 	},
 	Route{
 		"RemoveInstance",

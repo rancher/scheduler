@@ -5,7 +5,7 @@ A microservice that does micro things.
 
 ## Building
 
-`make`
+`go build -o scheduler main.go`
 
 
 ## Running

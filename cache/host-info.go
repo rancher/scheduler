@@ -6,6 +6,7 @@ import (
 	schedulerClient "github.com/rancher/scheduler/client"
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 type IopsInfo struct {
@@ -42,7 +43,7 @@ const (
 )
 
 // return true means allocated, otherwise not allocated anything
-func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, instanceId string) {
+func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, instanceId string) error {
 	var readIopsReserved uint64
 	var writeIopsReserved uint64
 	hasLabels := false
@@ -62,7 +63,7 @@ func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, ins
 	// no iops labels, we are done
 	if hasLabels == false {
 		log.Info("no iops labels")
-		return
+		return nil
 	}
 
 	log.Infof("allocate iops for instance id: %s, on host id: %s, readIopsReserved: %d, writeIopsReserved: %d",
@@ -71,8 +72,14 @@ func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, ins
 	// account for resource used by this instance. disk has to exist during GetHostInfo() call
 	diskInfo, ok := host.Disks[DefaultDiskPath]
 	if !ok {
-		log.Info("no disk on host for disk path:", DefaultDiskPath)
-		return
+		errStr := fmt.Sprintf("no disk on host with disk path:", DefaultDiskPath)
+		log.Error(errStr)
+		return fmt.Errorf(errStr)
+	}
+	if diskInfo.Iops.ReadAllocated + readIopsReserved > diskInfo.Iops.ReadTotal {
+		errStr := fmt.Sprintf("already allocated(%d) + reserving(%d) > total(%d) iops", diskInfo.Iops.ReadAllocated, readIopsReserved, diskInfo.Iops.ReadTotal)
+		log.Error(errStr)
+		return fmt.Errorf(errStr)
 	}
 	diskInfo.Iops.ReadAllocated += readIopsReserved
 	diskInfo.Iops.WriteAllocated += writeIopsReserved
@@ -90,10 +97,13 @@ func (host *HostInfo) AllocateIopsForInstance(labels map[string]interface{}, ins
 	// create and add an entry (replace it if exists)
 	diskReserved := &DiskReserved{DefaultDiskPath, readIopsReserved, writeIopsReserved}
 	instanceInfo.DisksReservedMap[DefaultDiskPath] = diskReserved
+
+	return nil
 }
 
 // return true means allocated, otherwise not allocated anything
-func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
+func (host *HostInfo) DeallocateIopsForInstance(instanceId string) (err error) {
+	err = nil
 	instanceInfo, ok := host.Instances[instanceId]
 	if !ok {
 		log.Info("never allocated for instance id: ", instanceId)
@@ -112,7 +122,13 @@ func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
 	// account for resource used by this instance
 	diskInfo, ok := host.Disks[DefaultDiskPath]
 	if !ok {
+		log.Infof("no allocation of iops from device path: %s", DefaultDiskPath)
 		return
+	}
+	if diskInfo.Iops.ReadAllocated < readIopsReserved {
+		errStr := fmt.Sprintf("deallocate (%d) more iops than allocated (%d), it should never happen", readIopsReserved, diskInfo.Iops.ReadAllocated)
+		log.Error(errStr)
+		return fmt.Errorf(errStr)
 	}
 	diskInfo.Iops.ReadAllocated -= readIopsReserved
 	diskInfo.Iops.WriteAllocated -= writeIopsReserved
@@ -121,12 +137,16 @@ func (host *HostInfo) DeallocateIopsForInstance(instanceId string) {
 
 	// remove a disksReserved map entry for instance
 	delete(instanceInfo.DisksReservedMap, DefaultDiskPath)
+	return
 }
 
 // instance resources are iops
 func (host *HostInfo) loadAllocatedContainerResource() error {
+	log.Infof("Loading all allocated container resouces on the host id: %s ...", host.HostId)
+
 	containerList, err := schedulerClient.GetContainersOnHost(host.HostId, host.EnvId)
 	if err != nil || containerList == nil || len(containerList) == 0 {
+		log.Infof("No containers on the host id: %s", host.HostId)
 		return err
 	}
 	for _, container := range containerList {
@@ -135,16 +155,20 @@ func (host *HostInfo) loadAllocatedContainerResource() error {
 		// allocate resource for this container. container now just uses iops, no cpu/mem
 		host.AllocateIopsForInstance(container.Labels, container.Id)
 	}
+	log.Infof("Done loading all allocated container resouces on the host id: %s", host.HostId)
 
 	return nil
 }
 
 // VM resources are cpu/mem
 func (host *HostInfo) loadAllocatedVMResource() error {
+	log.Infof("Loading all allocated VM resouces on the host id: %s ...", host.HostId)
+
 	// first time we need to get all the container instances from cattle
 	// scheduled on that host
 	vmList, err := schedulerClient.GetVMsOnHost(host.HostId, host.EnvId)
 	if err != nil || vmList == nil || len(vmList) == 0 {
+		log.Infof("No VMs on the host id: %s", host.HostId)
 		return err
 	}
 	for _, vm := range vmList {
@@ -156,13 +180,12 @@ func (host *HostInfo) loadAllocatedVMResource() error {
 		// vm could reserve iops
 		host.AllocateIopsForInstance(vm.Labels, vm.Id)
 	}
+	log.Infof("Done loading all allocated VM resouces on the host id: %s", host.HostId)
 
 	return nil
 }
 
-func (host *HostInfo) AllocateCPUMemoryForVM(vm *rancherClient.VirtualMachine) {
-	log.Infof("vm name: %s, vm id: %s", vm.Name, vm.Id)
-
+func (host *HostInfo) AllocateCPUMemoryForVM(vm *rancherClient.VirtualMachine) error {
 	// calculate back from vcpu to cpu
 	cpuReserved := float64(vm.Vcpu) / DivisionFactorOfVcpu
 	memReserved := float64(vm.MemoryMb)
@@ -171,6 +194,11 @@ func (host *HostInfo) AllocateCPUMemoryForVM(vm *rancherClient.VirtualMachine) {
 		vm.Id, host.HostId, cpuReserved, memReserved)
 
 	// account for cpu/mem resource used by this instance
+	if host.CpuUsed + cpuReserved > host.CpuTotalCount {
+		errStr := fmt.Sprintf("already used(%f) + reserving(%f) > CpuTotalCount(%f)", host.CpuUsed, cpuReserved, host.CpuTotalCount)
+		log.Error(errStr)
+		return fmt.Errorf(errStr)
+	}
 	host.CpuUsed += cpuReserved
 	host.MemUsedInMB += memReserved
 	log.Infof("host id: %s, after allocation, CpuUsed: %f, memReserved: %f", host.HostId,
@@ -185,9 +213,12 @@ func (host *HostInfo) AllocateCPUMemoryForVM(vm *rancherClient.VirtualMachine) {
 		instanceInfo.CpuReserved = cpuReserved
 		instanceInfo.MemReservedInMB = memReserved
 	}
+
+	return nil
 }
 
-func (host *HostInfo) DeallocateCPUMemoryForVM(instanceId string) {
+func (host *HostInfo) DeallocateCPUMemoryForVM(instanceId string) (err error) {
+	err = nil
 	instanceInfo, ok := host.Instances[instanceId]
 	if !ok {
 		return
@@ -197,10 +228,17 @@ func (host *HostInfo) DeallocateCPUMemoryForVM(instanceId string) {
 	log.Infof("deallocate cpu and memory for instance id: %s, on host id: %s, cpuReserved: %f, memReserved: %f",
 		instanceId, host.HostId, cpuReserved, memReserved)
 
+	if host.CpuUsed < cpuReserved {
+		errStr := fmt.Sprintf("deallocate (%f) more cpu than allocated (%f), it should never happen", cpuReserved, host.CpuUsed)
+		log.Error(errStr)
+		return fmt.Errorf(errStr)
+	}
 	host.CpuUsed -= cpuReserved
 	host.MemUsedInMB -= memReserved
 	log.Infof("host id:%s, after deallocation, CpuUsed: %f, MemUsedInMB: %f", host.HostId,
 		host.CpuUsed, host.MemUsedInMB)
+
+	return
 }
 
 func (host *HostInfo) RemoveInstanceInfo(instanceId string) {

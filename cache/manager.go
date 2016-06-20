@@ -70,6 +70,8 @@ func RemoveHostInfoFromCache() {
 }
 
 func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
+	log.Infof("Loading host id: %s resource information to cache ...", host.Id)
+
 	// there are several types of resources we need to load into cache
 	// cpu, memory, iops
 	hostInfo := &HostInfo{HostId: host.Id, EnvId: host.AccountId}
@@ -133,6 +135,7 @@ func loadHostInfoToCache(host *rancherClient.Host) *HostInfo {
 		hostInfo.NotCompleteLoaded = true
 		log.Info("iopsInfo is not loaded completely")
 	}
+	log.Infof("Done loading host id: %s resource information to cache", host.Id)
 
 	return hostInfo
 }
