@@ -12,10 +12,16 @@ import (
 	"fmt"
 )
 
-type Response struct {
+type ScheduleResponse struct {
 	// have to include below anonymous resource field
 	rancherClient.Resource
 	Schedule []string `json:"schedule"`
+	ErrorMessage string `json:"errorMessage"`
+}
+
+type ModifyResponse struct {
+	// have to include below anonymous resource field
+	rancherClient.Resource
 	ErrorMessage string `json:"errorMessage"`
 }
 
@@ -62,9 +68,9 @@ func Schedule(w http.ResponseWriter, r *http.Request) {
 
 done:
 
-	response := Response{
+	response := ScheduleResponse{
 		rancherClient.Resource{
-			Type: "schedule",
+			Type: "scheduler",
 		},
 		schedulableHostIds,
 		errorMessage,
@@ -90,10 +96,6 @@ func ScheduleCpu(hostIds []string, vmId string, envId string) (schedulableHostId
 	}
 	requirement = string(vm.Vcpu)
 
-	// calculate back from vcpu to cpu
-	cpuRequired := float64(vm.Vcpu) / cache.DivisionFactorOfVcpu
-	log.Infof("cpu required: %f", cpuRequired)
-
 	for _, hostId := range hostIds {
 		isSchedulable := ScheduleCpuOnHost(hostId, vm, envId)
 		if isSchedulable {
@@ -114,7 +116,7 @@ func ScheduleCpuOnHost(hostId string, vm *rancherClient.VirtualMachine, envId st
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		log.Info("can't get host id:", hostId)
+		log.Info("can't get hostInfo id:", hostId)
 		return retVal
 	}
 
@@ -147,11 +149,6 @@ func ScheduleMemory(hostIds []string, vmId string, envId string) (schedulableHos
 		schedulableHostIds = hostIds
 		return
 	}
-	requirement = string(vm.MemoryMb)
-
-	// calculate back from vcpu to cpu
-	cpuRequired := float64(vm.Vcpu) / cache.DivisionFactorOfVcpu
-	log.Infof("cpu required: %f", cpuRequired)
 
 	for _, hostId := range hostIds {
 		isSchedulable := ScheduleMemoryOnHost(hostId, vm, envId)
@@ -173,7 +170,7 @@ func ScheduleMemoryOnHost(hostId string, vm *rancherClient.VirtualMachine, envId
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		log.Info("can't get host id:", hostId)
+		log.Info("can't get hostInfo id:", hostId)
 		return retVal
 	}
 
@@ -192,31 +189,24 @@ func ScheduleMemoryOnHost(hostId string, vm *rancherClient.VirtualMachine, envId
 	return retVal
 }
 
-// AllocateCPUMemory is a handler for route /cpu and returns a collection of host ids that
-// can be scheduled on
-func AllocateCPUMemory(w http.ResponseWriter, r *http.Request) {
-	log.Info("AllocateCPUMemory called")
-
-	hostId := r.FormValue("hostId")
-	vmId := r.FormValue("vmId")
-	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, vmId:%s, envId: %s", hostId, vmId, envId)
+func AllocateCpuMemory(hostId string, vmId string, envId string) error {
+	log.Infof("AllocateCpuMemory hostid: %s, vmId:%s, envId: %s", hostId, vmId, envId)
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		return
+		return fmt.Errorf("can't get hostInfo id: %s", hostId)
 	}
 
 	// get the VM by id
 	vm, err := client.GetVM(vmId)
 	if err != nil || vm == nil {
-		return
+		return fmt.Errorf("can't get VM id: %s", vmId)
 	}
-	log.Infof("vm name: %s, vm instance id: %s", vm.Name, vm.Id)
-	hostInfo.AllocateCPUMemoryForVM(vm)
 
-	return
+	err = hostInfo.AllocateCPUMemoryForVM(vm)
+
+	return err
 }
 
 // DeallocateCPUMemory is a handler for route /cpu and returns a collection of host ids that can
@@ -362,80 +352,83 @@ func ScheduleIopsOnHost(hostId string, envId string, readIopsRequired uint64, wr
 	return retVal
 }
 
-//ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
-func AllocateIops(w http.ResponseWriter, r *http.Request) {
-	log.Info("AllocateIops called")
-
-	hostId := r.FormValue("hostId")
-	instanceId := r.FormValue("instanceId")
-	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, instanceId:%s, envId: %s", hostId, instanceId, envId)
+func AllocateIops(hostId string, instanceId string, instanceKind string, envId string) error {
+	log.Infof("AllocateIops for %s, instanceId: %s, on hostid: %s, envId: %s", instanceKind, instanceId, hostId, envId)
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		return
+		return fmt.Errorf("can't get hostInfo id: %s", hostId)
 	}
+	var labels map[string]interface{}
 
 	// allocate iops for both container and vm
-	container, err := client.GetContainer(instanceId)
-	if err != nil {
-		return
+	if strings.EqualFold(instanceKind, INSTANCE_KIND_CONTAINER) {
+		container, err := client.GetContainer(instanceId)
+		if err != nil || container == nil {
+			return fmt.Errorf("can't get container from cattle with instanceId: %s", instanceId)
+		}
+		labels = container.Labels
+	} else {
+		vm, err := client.GetVM(instanceId)
+		if err != nil || vm == nil {
+			return fmt.Errorf("can't get VM from cattle with instanceId: %s", instanceId)
+		}
+		labels = vm.Labels
 	}
-	if container != nil {
-		log.Info("allocate container for iops")
-		hostInfo.AllocateIopsForInstance(container.Labels, instanceId)
-		return
-	}
-	vm, err := client.GetVM(instanceId)
-	if err != nil {
-		return
-	}
-	if vm != nil {
-		log.Info("allocate VM for iops")
-		hostInfo.AllocateIopsForInstance(vm.Labels, instanceId)
-		return
-	}
+	err := hostInfo.AllocateIopsForInstance(labels, instanceId)
+
+	return err
 }
 
 //ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
-func DeallocateIops(w http.ResponseWriter, r *http.Request) {
-	log.Info("DeallocateIops called")
-
-	hostId := r.FormValue("hostId")
-	instanceId := r.FormValue("instanceId")
-	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, instanceId:%s, envId: %s", hostId, instanceId, envId)
+func DeallocateIops(hostId string, instanceId string, instanceKind string, envId string) error {
+	log.Infof("DeallocateIops: for %s id: %s, hostId: %s, envId: %s", instanceKind, instanceId, hostId, envId)
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		return
+		log.Info("can't get hostInfo id:", hostId)
+		return nil
 	}
 
 	log.Infof("instance id: %s", instanceId)
-	hostInfo.DeallocateIopsForInstance(instanceId)
+	err := hostInfo.DeallocateIopsForInstance(instanceId)
 
-	return
+	return err
 }
 
 //ScheduleCPU is a handler for route /cpu and returns a collection of host ids that can be scheduled on
 func RemoveInstance(w http.ResponseWriter, r *http.Request) {
-	log.Info("RemoveInstance called")
-
 	hostId := r.FormValue("hostId")
 	instanceId := r.FormValue("instanceId")
+	instanceKind := r.FormValue("instanceKind")
 	envId := r.FormValue("envId")
-	log.Infof("received hostid: %s, instanceId:%s, envId: %s", hostId, instanceId, envId)
+
+	log.Infof("RemoveInstance from hostId: %s, envId: %s, for %s instanceId: %s", hostId, envId, instanceKind, instanceId)
+
+	var errorMessage string
 
 	// get the hostInfo obj from cache, if not exists, it will reload
 	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
 	if hostInfo == nil {
-		return
+		log.Info("can't get hostInfo id:", hostId)
+		goto done
 	}
 	hostInfo.RemoveInstanceInfo(instanceId)
-	log.Infof("removed instanceId:%s, from hostid: %s, envId: %s", instanceId, hostId, envId)
+	log.Infof("removed %s id: %s, from hostid: %s, envId: %s", instanceKind, instanceId, hostId, envId)
+
+done:
+	response := ModifyResponse{
+		rancherClient.Resource{
+			Type: "scheduler",
+		},
+		errorMessage,
+	}
+	api.CreateApiContext(w, r, schemas)
+	api.GetApiContext(r).Write(&response)
 	return
+
 }
 
 func RemoveHost(w http.ResponseWriter, r *http.Request) {
@@ -448,5 +441,94 @@ func RemoveHost(w http.ResponseWriter, r *http.Request) {
 	// get the hostInfo obj from cache, if not exists, it will reload
 	cache.Manager.RemoveHostInfo(hostId, envId)
 	log.Infof("removed hostid: %s, envId: %s", hostId, envId)
+	return
+}
+
+func Allocate(w http.ResponseWriter, r *http.Request) {
+	hostId := r.FormValue("hostId")
+	instanceId := r.FormValue("instanceId")
+	instanceKind := r.FormValue("instanceKind")
+	envId := r.FormValue("envId")
+
+	log.Infof("Allocate host resource on hostId: %s, envId: %s, for %s instanceId: %s", hostId, envId, instanceKind, instanceId)
+
+	var errorMessage string
+
+	// schedule Iops for all instances, disregard its kind
+	err := AllocateIops(hostId, instanceId, instanceKind, envId)
+	if err != nil {
+		errorMessage = fmt.Sprintf("AllocateIops failed on host id: %s, for %s instanceId: %s, %s", hostId, instanceKind, instanceId, err)
+		goto done
+	}
+	if strings.EqualFold(instanceKind, INSTANCE_KIND_VIRTUAL_MACHINE) {
+		err = AllocateCpuMemory(hostId, instanceId, envId)
+		if err != nil {
+			errorMessage = fmt.Sprintf("AllocateCpuMemory failed on host id: %s, for %s instanceId: %s, %s", hostId, instanceKind, instanceId, err)
+			goto done
+		}
+	}
+
+done:
+
+	response := ModifyResponse{
+		rancherClient.Resource{
+			Type: "scheduler",
+		},
+		errorMessage,
+	}
+	api.CreateApiContext(w, r, schemas)
+	api.GetApiContext(r).Write(&response)
+	return
+}
+
+func Deallocate(w http.ResponseWriter, r *http.Request) {
+	hostId := r.FormValue("hostId")
+	instanceId := r.FormValue("instanceId")
+	instanceKind := r.FormValue("instanceKind")
+	envId := r.FormValue("envId")
+
+	log.Infof("Deallocate host resource on hostId: %s, envId: %s, for %s instanceId: %s", hostId, envId, instanceKind, instanceId)
+
+	var errorMessage string
+	var err error
+
+	// get the hostInfo obj from cache, if not exists, it will reload
+	hostInfo := cache.Manager.GetHostInfo(hostId, envId)
+	if hostInfo == nil {
+		log.Info("can't get hostInfo id:", hostId)
+		goto done
+	}
+
+	// deallocate Iops for all instances, disregard its kind
+	log.Infof("DeallocateIops: for %s id: %s, hostId: %s, envId: %s", instanceKind, instanceId, hostId, envId)
+	err = hostInfo.DeallocateIopsForInstance(instanceId)
+	if err != nil {
+		errorMessage = fmt.Sprintf("DeallocateIops failed on host id: %s, for %s instanceId: %s, %s", hostId, instanceKind, instanceId, err)
+		goto done
+	}
+	if strings.EqualFold(instanceKind, INSTANCE_KIND_VIRTUAL_MACHINE) {
+		vm, err := client.GetVM(instanceId)
+		if err != nil || vm == nil {
+			log.Info("can't get VM id:", instanceId)
+			goto done
+		}
+		log.Infof("vm name: %s, vm instance id: %s", vm.Name, vm.Id)
+		err = hostInfo.DeallocateCPUMemoryForVM(vm.Id)
+		if err != nil {
+			errorMessage = fmt.Sprintf("DeallocateCPUMemoryForVM failed on host id: %s, for %s instanceId: %s, %s", hostId, instanceKind, instanceId, err)
+			goto done
+		}
+	}
+
+done:
+
+	response := ModifyResponse{
+		rancherClient.Resource{
+			Type: "scheduler",
+		},
+		errorMessage,
+	}
+	api.CreateApiContext(w, r, schemas)
+	api.GetApiContext(r).Write(&response)
 	return
 }

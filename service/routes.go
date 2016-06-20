@@ -62,7 +62,8 @@ func NewRouter() *mux.Router {
 	schemas = &client.Schemas{}
 
 	// add return types
-	schemas.AddType("schedule", Response{})
+	schemas.AddType("scheduler", ScheduleResponse{})
+	schemas.AddType("scheduler", ModifyResponse{})
 
 	// API framework routes
 	router := mux.NewRouter().StrictSlash(true)
@@ -88,32 +89,20 @@ var routes = Routes{
 	Route{
 		"Schedule",
 		"POST",
-		"/v1-scheduler",
+		"/v1-scheduler/schedule",
 		Schedule,
 	},
 	Route{
-		"AllocateCPUMemory",
+		"Allocate",
 		"POST",
-		"/v1-scheduler/allocate-cpu-memory",
-		AllocateCPUMemory,
+		"/v1-scheduler/allocate",
+		Allocate,
 	},
 	Route{
-		"DeallocateCPUMemory",
+		"Deallocate",
 		"POST",
-		"/v1-scheduler/deallocate-cpu-memory",
-		DeallocateCPUMemory,
-	},
-	Route{
-		"AllocateIops",
-		"POST",
-		"/v1-scheduler/allocate-iops",
-		AllocateIops,
-	},
-	Route{
-		"DeallocateIops",
-		"POST",
-		"/v1-scheduler/deallocate-iops",
-		DeallocateIops,
+		"/v1-scheduler/deallocate",
+		Deallocate,
 	},
 	Route{
 		"RemoveInstance",
