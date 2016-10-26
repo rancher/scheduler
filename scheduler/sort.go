@@ -2,9 +2,22 @@ package scheduler
 
 func filter(hosts map[string]*host, resourceRequests []ResourceRequest) []*host {
 	filtered := []*host{}
+	aggregateResReqs := map[string]*ResourceRequest{}
+	for _, rr := range resourceRequests {
+		aggResReq, ok := aggregateResReqs[rr.Resource]
+		if !ok {
+			aggResReq = &ResourceRequest{
+				Resource: rr.Resource,
+				Amount:   0,
+			}
+			aggregateResReqs[rr.Resource] = aggResReq
+		}
+		aggResReq.Amount += rr.Amount
+	}
+
 Outer:
 	for _, h := range hosts {
-		for _, rr := range resourceRequests {
+		for _, rr := range aggregateResReqs {
 			pool, ok := h.pools[rr.Resource]
 			if !ok || (pool.total-pool.used) < rr.Amount {
 				continue Outer

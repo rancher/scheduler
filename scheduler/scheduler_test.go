@@ -48,6 +48,9 @@ func (s *SchedulerTestSuite) TestReserveResource(c *check.C) {
 		// Host 2 has more memory for first iteration
 		{"1", false, []ResourceRequest{{Amount: 1, Resource: "memory"}, {Amount: 1, Resource: "storage.size"}}, []string{"2", "1"}},
 
+		// Double memory requests result in no hosts with enough memory
+		{"2-memory-requests", false, []ResourceRequest{{Amount: 3, Resource: "memory"}, {Amount: 3, Resource: "memory"}}, []string{}},
+
 		// Host 2 still has more memory. Request has two memory resource requests
 		{"2", false, []ResourceRequest{{Amount: 1, Resource: "memory"}, {Amount: 1, Resource: "memory"}, {Amount: 1, Resource: "storage.size"}}, []string{"2", "1"}},
 

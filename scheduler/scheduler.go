@@ -202,7 +202,7 @@ type OverReserveError struct {
 }
 
 func (e OverReserveError) Error() string {
-	return fmt.Sprintf("Not enough available resources on host %v to resserve %v.", e.hostID, e.resourceRequest)
+	return fmt.Sprintf("Not enough available resources on host %v to reserve %v.", e.hostID, e.resourceRequest)
 }
 
 type OverReleaseError struct {
