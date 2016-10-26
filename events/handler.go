@@ -51,7 +51,7 @@ func (h *schedulingHandler) Prioritize(event *revents.Event, client *client.Ranc
 
 	candidates, err := h.scheduler.PrioritizeCandidates(data.ResourceRequests)
 	if err != nil {
-		return errors.Wrapf(err, "Error prioritizing candidates.")
+		return errors.Wrapf(err, "Error prioritizing candidates. Event %v", event)
 	}
 
 	eventDataWrapper := map[string]interface{}{"prioritizedCandidates": candidates}
