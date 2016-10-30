@@ -28,9 +28,13 @@ type metadataWatcher struct {
 	mu                    sync.Mutex
 }
 
-const memoryPool string = "memoryReservation"
-const cpuPool string = "cpuReservation"
-const storageSize string = "storageSize"
+const (
+	instancePool            string = "instanceReservation"
+	memoryPool              string = "memoryReservation"
+	cpuPool                 string = "cpuReservation"
+	storageSize             string = "storageSize"
+	totalAvailableInstances int64  = 1000000
+)
 
 func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 	w.mu.Lock()
@@ -55,9 +59,10 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		delete(w.knownHosts, h.UUID)
 
 		poolInits := map[string]int64{
-			cpuPool:     h.MilliCPU,
-			memoryPool:  h.Memory,
-			storageSize: h.LocalStorageMb,
+			instancePool: totalAvailableInstances,
+			cpuPool:      h.MilliCPU,
+			memoryPool:   h.Memory,
+			storageSize:  h.LocalStorageMb,
 		}
 
 		for resourceKey, total := range poolInits {
@@ -101,6 +106,7 @@ func (w *metadataWatcher) getUsedResourcesByHost() (map[string]map[string]int64,
 			resourcesByHost[c.HostUUID] = usedRes
 		}
 
+		usedRes[instancePool]++
 		usedRes[memoryPool] += c.MemoryReservation
 		usedRes[cpuPool] += c.MilliCPUReservation
 	}
