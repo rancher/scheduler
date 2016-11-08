@@ -3,6 +3,7 @@ package events
 import (
 	"github.com/Sirupsen/logrus"
 	revents "github.com/rancher/event-subscriber/events"
+	"github.com/rancher/event-subscriber/locks"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/scheduler/scheduler"
 )
@@ -20,10 +21,14 @@ func ConnectToEventStream(cattleURL, accessKey, secretKey string, scheduler *sch
 		"ping":                 func(_ *revents.Event, _ *client.RancherClient) error { return nil },
 	}
 
-	router, err := revents.NewEventRouter("", 0, cattleURL, accessKey, secretKey, nil, eventHandlers, "", 10, revents.DefaultPingConfig)
+	router, err := revents.NewEventRouter("", 0, cattleURL, accessKey, secretKey, nil, eventHandlers, "", 100, revents.DefaultPingConfig)
 	if err != nil {
 		return err
 	}
-	err = router.StartWithoutCreate(nil)
+
+	wp := revents.SkippingWorkerPool(100, nopLocker)
+	err = router.RunWithWorkerPool(wp)
 	return err
 }
+
+func nopLocker(_ *revents.Event) locks.Locker { return locks.NopLocker() }
