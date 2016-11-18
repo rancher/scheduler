@@ -110,14 +110,14 @@ func (c *mockMDClient) OnChange(intervalSeconds int, do func(string)) {
 
 func (c *mockMDClient) GetHosts() ([]metadata.Host, error) {
 	if c.errorHosts {
-		return nil, fmt.Errorf("Doesn't work.")
+		return nil, fmt.Errorf("Doesn't work")
 	}
 	return c.hosts, nil
 }
 
 func (c *mockMDClient) GetContainers() ([]metadata.Container, error) {
 	if c.errorContainers {
-		return nil, fmt.Errorf("Doesn't work.")
+		return nil, fmt.Errorf("Doesn't work")
 	}
 	return []metadata.Container{{MemoryReservation: 1, HostUUID: "host-a"}}, nil
 }
