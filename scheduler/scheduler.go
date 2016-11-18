@@ -75,7 +75,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
-			err = fmt.Errorf("Host %v doesn't have resource pool %v.", hostID, rr.Resource)
+			err = fmt.Errorf("Host %v doesn't have resource pool %v", hostID, rr.Resource)
 			break
 		}
 
@@ -117,7 +117,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
-			err = fmt.Errorf("Host %v doesn't have resource pool %v.", hostID, rr.Resource)
+			err = fmt.Errorf("Host %v doesn't have resource pool %v", hostID, rr.Resource)
 			break
 		}
 
@@ -158,7 +158,7 @@ func (s *Scheduler) CreateResourcePool(hostUUID, resource string, total, used in
 	}
 
 	if _, ok := h.pools[resource]; ok {
-		return fmt.Errorf("Pool %v already exists on host %v.", resource, hostUUID)
+		return fmt.Errorf("Pool %v already exists on host %v", resource, hostUUID)
 	}
 
 	logrus.Infof("Adding resource pool [%v] with total %v and used %v for host %v", resource, total, used, hostUUID)
