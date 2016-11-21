@@ -1,18 +1,24 @@
 #!/bin/bash
 set -e
 
+source $(dirname $0)/version
+
 ARCH=${ARCH:?"ARCH not set"}
 SUFFIX=""
 [ "${ARCH}" != "amd64" ] && SUFFIX="_${ARCH}"
 
-source $(dirname $0)/version
-
 cd $(dirname $0)/../package
 
-TAG=${TAG:-${VERSION}${SUFFIX}}
+TAG=${TAG:-${IMAGE_VERSION}${SUFFIX}}
 REPO=${REPO:-rancher}
 
-cp ../bin/scheduler .
-docker build -t ${REPO}/scheduler:${TAG} .
+if [ ! -e ../bin/storage ]; then
+    ../scripts/build
+fi
 
-echo Built ${REPO}/scheduler:${TAG}
+cp ../bin/scheduler .
+
+IMAGE=${REPO}/scheduler:${TAG}
+docker build -t ${IMAGE} .
+echo ${IMAGE} > ../dist/images
+echo Built ${IMAGE}
