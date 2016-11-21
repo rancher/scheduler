@@ -123,7 +123,6 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		return nil
 	}
 
-	var err error
 	releaseLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
@@ -133,28 +132,16 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		}
 
 		if p.used-rr.Amount < 0 {
-			err = OverReleaseError{hostID: hostID, resourceRequest: rr}
-			break
+			logrus.Infof("Decreasing used for %v.%v by %v would result in negative usage. Setting to 0.", hostID, rr.Resource, rr.Amount)
+			p.used = 0
+		} else {
+			p.used = p.used - rr.Amount
 		}
 
-		p.used = p.used - rr.Amount
 		releaseLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", rr.Resource, p.total, p.used))
 	}
 
-	if err == nil {
-		logrus.Info(releaseLog.String())
-	} else {
-		// rollback
-		for _, rr := range resourceRequests {
-			p, ok := h.pools[rr.Resource]
-			if !ok {
-				break
-			}
-			p.used = p.used + rr.Amount
-		}
-		return err
-	}
-
+	logrus.Info(releaseLog.String())
 	return nil
 }
 
@@ -217,13 +204,4 @@ type OverReserveError struct {
 
 func (e OverReserveError) Error() string {
 	return fmt.Sprintf("Not enough available resources on host %v to reserve %v.", e.hostID, e.resourceRequest)
-}
-
-type OverReleaseError struct {
-	hostID          string
-	resourceRequest ResourceRequest
-}
-
-func (e OverReleaseError) Error() string {
-	return fmt.Sprintf("Releasing %v on host %v would cause the resource pool to have negative usage.", e.resourceRequest, e.hostID)
 }

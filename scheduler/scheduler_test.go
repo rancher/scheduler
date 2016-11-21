@@ -160,10 +160,9 @@ func (s *SchedulerTestSuite) TestBadResourceReservation(c *check.C) {
 	c.Assert(scheduler.hosts["1"].pools["storage.size"].used, check.Equals, int64(1))
 	c.Assert(scheduler.hosts["1"].pools["memory"].used, check.Equals, int64(1))
 
-	// Can't release to above total
+	// Release to above total, just sets pool.used to 0.
 	err = scheduler.ReleaseResources("1", []ResourceRequest{{Amount: 1, Resource: "storage.size"}, {Amount: 4, Resource: "memory"}})
-	c.Assert(err, check.FitsTypeOf, OverReleaseError{})
-	c.Assert(err, check.ErrorMatches, ".*memory.*")
+	c.Assert(err, check.IsNil)
 }
 
 func checkPrioritizationAndReserve(scheduler *Scheduler, tests []rezTest, c *check.C) {
