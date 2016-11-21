@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"sync"
@@ -73,8 +74,9 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 		return nil
 	}
 
-	var err error
 	i := 0
+	var err error
+	reserveLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
@@ -89,9 +91,13 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 
 		p.used = p.used + rr.Amount
 		i++
+
+		reserveLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", rr.Resource, p.total, p.used))
 	}
 
-	if err != nil {
+	if err == nil {
+		logrus.Info(reserveLog.String())
+	} else {
 		// rollback
 		for _, rr := range resourceRequests[:i] {
 			p, ok := h.pools[rr.Resource]
@@ -118,6 +124,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 	}
 
 	var err error
+	releaseLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
@@ -131,9 +138,12 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		}
 
 		p.used = p.used - rr.Amount
+		releaseLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", rr.Resource, p.total, p.used))
 	}
 
-	if err != nil {
+	if err == nil {
+		logrus.Info(releaseLog.String())
+	} else {
 		// rollback
 		for _, rr := range resourceRequests {
 			p, ok := h.pools[rr.Resource]
