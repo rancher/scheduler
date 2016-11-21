@@ -67,8 +67,7 @@ func publish(event *revents.Event, data map[string]interface{}, apiClient *clien
 	reply.ResourceId = event.ResourceID
 	reply.Data = data
 
-	logrus.Infof("Reply: %+v", reply)
-
+	logrus.Infof("Reply: Name: %v, PreviousIds: %v, ResourceId: %v, Data: %v.", reply.Name, reply.PreviousIds, reply.ResourceId, reply.Data)
 	_, err := apiClient.Publish.Create(reply)
 	return err
 }
