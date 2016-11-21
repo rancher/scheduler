@@ -140,15 +140,15 @@ func (s *SchedulerTestSuite) TestBadResourceReservation(c *check.C) {
 
 	// host doesn't exist
 	err = scheduler.ReserveResources("2", false, []ResourceRequest{{Amount: 1, Resource: "memory"}})
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.IsNil)
 	err = scheduler.ReleaseResources("2", []ResourceRequest{{Amount: 1, Resource: "memory"}})
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.IsNil)
 
 	// pool doesn't exist on host
 	err = scheduler.ReserveResources("1", false, []ResourceRequest{{Amount: 1, Resource: "network"}})
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.IsNil)
 	err = scheduler.ReleaseResources("1", []ResourceRequest{{Amount: 1, Resource: "network"}})
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.IsNil)
 
 	// Can't reserve more than is available
 	err = scheduler.ReserveResources("1", false, []ResourceRequest{{Amount: 1, Resource: "storage.size"}, {Amount: 1, Resource: "memory"}})

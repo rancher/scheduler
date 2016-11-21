@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"sync"
@@ -64,19 +65,23 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	logrus.Infof("Reserving %+v for %v", resourceRequests, hostID)
+	logrus.Infof("Reserving %+v for %v. Force=%v", resourceRequests, hostID, force)
 	h, ok := s.hosts[hostID]
 	if !ok {
-		return fmt.Errorf("Could't find host %v", hostID)
+		// If the host isn't present, it is most likely that it hasn't been registered with the scheduler yet.
+		// When it is, this reservation will get counted by the initial population.
+		logrus.Warnf("Host %v not found for reserving %v. Skipping reservation", hostID, resourceRequests)
+		return nil
 	}
 
-	var err error
 	i := 0
+	var err error
+	reserveLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
-			err = fmt.Errorf("Host %v doesn't have resource pool %v", hostID, rr.Resource)
-			break
+			logrus.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.Resource, hostID, rr)
+			continue
 		}
 
 		if !force && p.used+rr.Amount > p.total {
@@ -86,9 +91,13 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 
 		p.used = p.used + rr.Amount
 		i++
+
+		reserveLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", rr.Resource, p.total, p.used))
 	}
 
-	if err != nil {
+	if err == nil {
+		logrus.Info(reserveLog.String())
+	} else {
 		// rollback
 		for _, rr := range resourceRequests[:i] {
 			p, ok := h.pools[rr.Resource]
@@ -110,15 +119,17 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 	logrus.Infof("Releasing %+v for %v", resourceRequests, hostID)
 	h, ok := s.hosts[hostID]
 	if !ok {
-		return fmt.Errorf("Could't find host %v", hostID)
+		logrus.Infof("Host %v not found for releasing %v. Nothing to do.", hostID, resourceRequests)
+		return nil
 	}
 
 	var err error
+	releaseLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.Resource]
 		if !ok {
-			err = fmt.Errorf("Host %v doesn't have resource pool %v", hostID, rr.Resource)
-			break
+			logrus.Infof("Host %v doesn't have resource pool %v. Nothing to do.", hostID, rr.Resource)
+			continue
 		}
 
 		if p.used-rr.Amount < 0 {
@@ -127,9 +138,12 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		}
 
 		p.used = p.used - rr.Amount
+		releaseLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", rr.Resource, p.total, p.used))
 	}
 
-	if err != nil {
+	if err == nil {
+		logrus.Info(releaseLog.String())
+	} else {
 		// rollback
 		for _, rr := range resourceRequests {
 			p, ok := h.pools[rr.Resource]
