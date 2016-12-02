@@ -18,6 +18,10 @@ const metadataURL = "http://rancher-metadata/2015-12-19"
 
 var VERSION = "v0.1.0-dev"
 
+func init() {
+	logrus.SetOutput(os.Stdout)
+}
+
 func main() {
 	app := cli.NewApp()
 	app.Name = "scheduler"
