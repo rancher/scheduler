@@ -1,5 +1,3 @@
-FROM ubuntu:16.04
-RUN apt-get update && \
-    apt-get install -y ca-certificates
+FROM rancher/agent-base:v0.3.0
 COPY scheduler /usr/bin/
 CMD ["scheduler"]
