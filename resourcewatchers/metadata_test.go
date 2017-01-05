@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"testing"
 
+	check "gopkg.in/check.v1"
+
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/scheduler/scheduler"
-	"gopkg.in/check.v1"
 )
 
 // gocheck setup
@@ -34,7 +35,7 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	go WatchMetadata(mock, sched)
 
 	// The mock metadata client's OnChange hasn't fired yet, so there should be no valid candidates
-	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{{Amount: 1, Resource: "memoryReservation"}})
+	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
 
@@ -42,17 +43,17 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	// host-a has 1 total and 1 used memory and host-b has 2 total and none used
 	change <- "1"
 	<-changeDone
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-b"})
 
-	err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{{Amount: 2, Resource: "memoryReservation"}})
+	_, err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 2, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 
 	// Release the initially used memory from host-a
-	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{{Amount: 1, Resource: "memoryReservation"}})
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-a"})
 
@@ -61,9 +62,53 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	change <- "2"
 	<-changeDone
 
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{{Amount: 1, Resource: "memoryReservation"}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
+}
+
+func (s *MetadataTestSuite) TestWatchMetadataPortPool(c *check.C) {
+	sched := scheduler.NewScheduler(-1)
+
+	change := make(chan string)
+	changeDone := make(chan int)
+	mock := &mockMDPortClient{
+		change:     change,
+		changeDone: changeDone,
+		hosts:      portUsedHosts,
+	}
+
+	go WatchMetadata(mock, sched)
+
+	// The mock metadata client's OnChange hasn't fired yet, so there should be no valid candidates
+	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{})
+
+	change <- "1"
+	<-changeDone
+	// port 8081 is already used by host-a, so return host-b
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{"host-b"})
+
+	// port 8082 is used for udp by host-a, so return host-b
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8082, PrivatePort: 8082, Protocol: "udp"}}}})
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{"host-b"})
+
+	// port 8083 is not used, should return two host
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8083, PrivatePort: 8083, Protocol: "tcp"}}}})
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.HasLen, 2)
+
+	// release the port 8081
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+
+	// when 8081 is released, scheduler should return two host available
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.HasLen, 2)
 }
 
 func (s *MetadataTestSuite) TestPanicLogic(c *check.C) {
@@ -91,6 +136,8 @@ func (s *MetadataTestSuite) TestPanicLogic(c *check.C) {
 }
 
 var defaultHosts = []metadata.Host{{UUID: "host-a", Memory: 1}, {UUID: "host-b", Memory: 2}}
+
+var portUsedHosts = []metadata.Host{{UUID: "host-a", Labels: map[string]string{"io.rancher.scheduler.ips": "192.168.1.1,192.168.1.2"}}, {UUID: "host-b", Labels: map[string]string{"io.rancher.scheduler.ips": "192.168.1.3,192.168.1.4"}}}
 
 type mockMDClient struct {
 	metadata.Client
@@ -121,4 +168,35 @@ func (c *mockMDClient) GetContainers() ([]metadata.Container, error) {
 		return nil, fmt.Errorf("Doesn't work")
 	}
 	return []metadata.Container{{MemoryReservation: 1, HostUUID: "host-a"}}, nil
+}
+
+type mockMDPortClient struct {
+	metadata.Client
+	change          chan string
+	changeDone      chan int
+	errorHosts      bool
+	errorContainers bool
+	hosts           []metadata.Host
+}
+
+func (c *mockMDPortClient) OnChangeWithError(intervalSeconds int, do func(string)) error {
+	for change := range c.change {
+		do(change)
+		c.changeDone <- 1
+	}
+	return nil
+}
+
+func (c *mockMDPortClient) GetHosts() ([]metadata.Host, error) {
+	if c.errorHosts {
+		return nil, fmt.Errorf("Doesn't work")
+	}
+	return c.hosts, nil
+}
+
+func (c *mockMDPortClient) GetContainers() ([]metadata.Container, error) {
+	if c.errorContainers {
+		return nil, fmt.Errorf("Doesn't work")
+	}
+	return []metadata.Container{{State: "running", Ports: []string{"192.168.1.1:8081:8081/tcp", "192.168.1.2:8081:8081/tcp", "192.168.1.1:8082:8082/udp", "192.168.1.2:8082:8082/udp"}, HostUUID: "host-a"}, {State: "running", Ports: []string{"192.168.1.3:8081:8081/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"}}, nil
 }

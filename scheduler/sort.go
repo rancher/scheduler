@@ -2,25 +2,30 @@ package scheduler
 
 func filter(hosts map[string]*host, resourceRequests []ResourceRequest) []*host {
 	filtered := []*host{}
-	aggregateResReqs := map[string]*ResourceRequest{}
+	aggregateResReqs := map[string]ResourceRequest{}
 	for _, rr := range resourceRequests {
-		aggResReq, ok := aggregateResReqs[rr.Resource]
-		if !ok {
-			aggResReq = &ResourceRequest{
-				Resource: rr.Resource,
-				Amount:   0,
+		if request, ok := rr.(AmountBasedResourceRequest); ok {
+			aggResReq, ok := aggregateResReqs[request.Resource].(AmountBasedResourceRequest)
+			if !ok {
+				aggResReq = AmountBasedResourceRequest{
+					Resource: rr.GetResourceType(),
+					Amount:   0,
+				}
+				aggregateResReqs[rr.GetResourceType()] = aggResReq
 			}
-			aggregateResReqs[rr.Resource] = aggResReq
+			aggResReq.Amount += request.Amount
+			aggregateResReqs[rr.GetResourceType()] = aggResReq
 		}
-		aggResReq.Amount += rr.Amount
 	}
 
 Outer:
 	for _, h := range hosts {
 		for _, rr := range aggregateResReqs {
-			pool, ok := h.pools[rr.Resource]
-			if !ok || (pool.total-pool.used) < rr.Amount {
-				continue Outer
+			if rq, ok := rr.(AmountBasedResourceRequest); ok {
+				pool, ok := h.pools[rr.GetResourceType()].(*ComputeResourcePool)
+				if !ok || (pool.Total-pool.Used) < rq.Amount {
+					continue Outer
+				}
 			}
 		}
 		filtered = append(filtered, h)
@@ -44,22 +49,24 @@ func (s hostSorter) Swap(i, j int) {
 
 func (s hostSorter) Less(i, j int) bool {
 	for _, rr := range s.resourceRequests {
-		iPool, iOK := s.hosts[i].pools[rr.Resource]
-		jPool, jOK := s.hosts[j].pools[rr.Resource]
+		if rq, ok := rr.(AmountBasedResourceRequest); ok {
+			iPool, iOK := s.hosts[i].pools[rq.Resource].(*ComputeResourcePool)
+			jPool, jOK := s.hosts[j].pools[rq.Resource].(*ComputeResourcePool)
 
-		if iOK && !jOK {
-			return true
-		} else if !iOK {
-			return false
-		}
+			if iOK && !jOK {
+				return true
+			} else if !iOK {
+				return false
+			}
 
-		iAvailable := iPool.total - iPool.used
-		jAvailable := jPool.total - jPool.used
+			iAvailable := iPool.Total - iPool.Used
+			jAvailable := jPool.Total - jPool.Used
 
-		if iAvailable > jAvailable {
-			return true
-		} else if iAvailable < jAvailable {
-			return false
+			if iAvailable > jAvailable {
+				return true
+			} else if iAvailable < jAvailable {
+				return false
+			}
 		}
 	}
 	return false
