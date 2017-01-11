@@ -46,8 +46,8 @@ func run(c *cli.Context) error {
 	}(exit)
 
 	go func(exit chan<- error) {
-		resourcewatchers.WatchMetadata(mdClient, scheduler)
-		exit <- fmt.Errorf("Metadata watcher exited")
+		err := resourcewatchers.WatchMetadata(mdClient, scheduler)
+		exit <- errors.Wrap(err, "Metadata watcher exited")
 	}(exit)
 
 	go func(exit chan<- error) {

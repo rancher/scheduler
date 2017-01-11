@@ -101,11 +101,12 @@ type mockMDClient struct {
 	hosts           []metadata.Host
 }
 
-func (c *mockMDClient) OnChange(intervalSeconds int, do func(string)) {
+func (c *mockMDClient) OnChangeWithError(intervalSeconds int, do func(string)) error {
 	for change := range c.change {
 		do(change)
 		c.changeDone <- 1
 	}
+	return nil
 }
 
 func (c *mockMDClient) GetHosts() ([]metadata.Host, error) {

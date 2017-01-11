@@ -2,13 +2,14 @@ package resourcewatchers
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/scheduler/scheduler"
-	"sync"
 )
 
-func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) {
+func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) error {
 	logrus.Infof("Subscribing to metadata changes.")
 
 	watcher := &metadataWatcher{
@@ -16,7 +17,7 @@ func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) {
 		client:          client,
 		knownHosts:      map[string]bool{},
 	}
-	client.OnChange(5, watcher.updateFromMetadata)
+	return client.OnChangeWithError(5, watcher.updateFromMetadata)
 }
 
 type metadataWatcher struct {
