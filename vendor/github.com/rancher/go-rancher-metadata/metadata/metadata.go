@@ -8,6 +8,7 @@ import (
 )
 
 type Client interface {
+	OnChangeWithError(int, func(string)) error
 	OnChange(int, func(string))
 	SendRequest(string) ([]byte, error)
 	GetVersion() (string, error)
@@ -22,18 +23,32 @@ type Client interface {
 	GetServiceContainers(string, string) ([]Container, error)
 	GetHosts() ([]Host, error)
 	GetHost(string) (Host, error)
+	GetNetworks() ([]Network, error)
 }
 
 type client struct {
 	url string
+	ip  string
 }
 
 func NewClient(url string) Client {
-	return &client{url}
+	ip := ""
+	return &client{url, ip}
+}
+
+func NewClientWithIPAndWait(url, ip string) (Client, error) {
+	client := &client{url, ip}
+
+	if err := testConnection(client); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func NewClientAndWait(url string) (Client, error) {
-	client := &client{url}
+	ip := ""
+	client := &client{url, ip}
 
 	if err := testConnection(client); err != nil {
 		return nil, err
@@ -46,6 +61,9 @@ func (m *client) SendRequest(path string) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", m.url+path, nil)
 	req.Header.Add("Accept", "application/json")
+	if m.ip != "" {
+		req.Header.Add("X-Forwarded-For", m.ip)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -222,4 +240,18 @@ func (m *client) GetHost(UUID string) (Host, error) {
 	}
 
 	return host, fmt.Errorf("could not find host by UUID %v", UUID)
+}
+
+func (m *client) GetNetworks() ([]Network, error) {
+	resp, err := m.SendRequest("/networks")
+	var networks []Network
+	if err != nil {
+		return networks, err
+	}
+
+	if err = json.Unmarshal(resp, &networks); err != nil {
+		return networks, err
+	}
+
+	return networks, nil
 }
