@@ -20,82 +20,6 @@ const (
 	defaultIP   = "0.0.0.0"
 )
 
-type ResourceUpdater interface {
-	CreateResourcePool(hostUUID string, pool ResourcePool) error
-	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
-	RemoveHost(hostUUID string)
-}
-
-type ResourceRequest interface {
-	GetResourceType() string
-}
-
-type BaseResourceRequest struct {
-	Resource string
-	Type     string
-}
-
-func (b BaseResourceRequest) GetResourceType() string {
-	return b.Resource
-}
-
-type ComputeResourceRequest struct {
-	Resource string
-	Amount   int64
-}
-
-func (c ComputeResourceRequest) GetResourceType() string {
-	return c.Resource
-}
-
-type PortSpec struct {
-	PrivatePort int64
-	IPAddress   string
-	PublicPort  int64
-}
-
-type PortBindingResourceRequest struct {
-	Resource     string
-	InstanceID   string
-	PortRequests []PortSpec
-}
-
-func (p PortBindingResourceRequest) GetResourceType() string {
-	return p.Resource
-}
-
-type ResourcePool interface {
-	GetPoolResourceType() string
-	GetPoolType() string
-}
-
-type ComputeResourcePool struct {
-	Resource string
-	Total    int64
-	Used     int64
-}
-
-func (c *ComputeResourcePool) GetPoolResourceType() string {
-	return c.Resource
-}
-
-func (c *ComputeResourcePool) GetPoolType() string {
-	return computePool
-}
-
-type PortResourcePool struct {
-	Resource       string
-	PortBindingMap map[string]map[int64]bool
-}
-
-func (p *PortResourcePool) GetPoolResourceType() string {
-	return p.Resource
-}
-
-func (p *PortResourcePool) GetPoolType() string {
-	return portPool
-}
-
 // ReservePort reserve a port from pool. Return allocated ip and true if port is reserved
 func (p *PortResourcePool) ReservePort(port int64) (string, bool) {
 	for ip, ports := range p.PortBindingMap {
@@ -147,14 +71,16 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64) {
 	}
 }
 
-func (p *PortResourcePool) IsPortAvailable(port int64) bool {
-	available := false
+func (p *PortResourcePool) ArePortsAvailable(ports []PortSpec) bool {
 	for _, portMap := range p.PortBindingMap {
-		if !portMap[port] {
-			available = true
+		for _, port := range ports {
+			if portMap[port.PublicPort] {
+				break
+			}
 		}
+		return true
 	}
-	return available
+	return false
 }
 
 type host struct {
@@ -209,7 +135,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	i := 0
 	var err error
 	data := map[string]interface{}{}
-	reserveLog := bytes.NewBufferString("")
+	reserveLog := bytes.NewBufferString(fmt.Sprintf("New pool amount on host %v:", hostID))
 L:
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.GetResourceType()]
@@ -229,7 +155,6 @@ L:
 
 			pool.Used = pool.Used + request.Amount
 			i++
-			reserveLog.WriteString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 			reserveLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", request.Resource, pool.Total, pool.Used))
 		case portPool:
 			pool := p.(*PortResourcePool)
@@ -241,16 +166,14 @@ L:
 			} else {
 				data[request.Resource] = result
 			}
-			logrus.Infof("Host-UUID %v, PortPool Map %v", hostID, pool.PortBindingMap)
 		}
 	}
 
 	if err == nil {
-		if reserveLog.String() != "" {
-			logrus.Info(reserveLog.String())
-		}
+		logrus.Info(reserveLog.String())
 	} else {
 		// rollback
+		// TODO We may need to add rollback logic for ports out here instead of in port.go
 		for _, rr := range resourceRequests[:i] {
 			p, ok := h.pools[rr.GetResourceType()]
 			if !ok {
@@ -281,7 +204,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		return nil
 	}
 
-	releaseLog := bytes.NewBufferString("")
+	releaseLog := bytes.NewBufferString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.GetResourceType()]
 		if !ok {
@@ -299,7 +222,6 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 			} else {
 				pool.Used = pool.Used - request.Amount
 			}
-			releaseLog.WriteString(fmt.Sprintf("New pool amounts on host %v:", hostID))
 			releaseLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", request.Resource, pool.Total, pool.Used))
 		case portPool:
 			pool := p.(*PortResourcePool)
@@ -309,9 +231,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 		}
 
 	}
-	if releaseLog.String() != "" {
-		logrus.Info(releaseLog.String())
-	}
+	logrus.Info(releaseLog.String())
 	return nil
 }
 
@@ -371,8 +291,6 @@ func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool) bool 
 			logrus.Infof("Updating resource pool [%v] to %v for host %v", p.GetPoolResourceType(), p.Total, hostUUID)
 			e.Total = p.Total
 		}
-	case portPool:
-		h.pools[pool.GetPoolResourceType()] = pool
 	}
 
 	return true
@@ -387,27 +305,24 @@ func (s *Scheduler) RemoveHost(hostUUID string) {
 }
 
 func (s *Scheduler) PortFilter(requests []ResourceRequest, hosts []string) []string {
-	filltedHosts := []string{}
+	filteredHosts := []string{}
 	for _, host := range hosts {
 		qualified := true
 		if portPool, ok := s.hosts[host].pools["portReservation"].(*PortResourcePool); ok {
-			fmt.Printf("%v", portPool)
 			for _, request := range requests {
-				if request.GetResourceType() == "portReservation" {
-					rr := request.(PortBindingResourceRequest)
-					for _, spec := range rr.PortRequests {
-						if !portPool.IsPortAvailable(spec.PublicPort) {
-							qualified = false
-						}
+				if rr, ok := request.(PortBindingResourceRequest); ok {
+					if !portPool.ArePortsAvailable(rr.PortRequests) {
+						qualified = false
+						break
 					}
 				}
 			}
 		}
 		if qualified {
-			filltedHosts = append(filltedHosts, host)
+			filteredHosts = append(filteredHosts, host)
 		}
 	}
-	return filltedHosts
+	return filteredHosts
 }
 
 type OverReserveError struct {

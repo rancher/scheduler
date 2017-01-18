@@ -78,7 +78,7 @@ func publish(event *revents.Event, data map[string]interface{}, apiClient *clien
 }
 
 func getEventData(event *revents.Event) (*schedulerData, error) {
-	logrus.Infof("Received event: Name: %s, Event Id: %s, Resource Id: %s", event.Name, event.ID, event.ResourceID)
+	logrus.Infof("Received event: Name: %s, Event Id: %s, Resource : %#v", event.Name, event.ID, event)
 	return decodeEvent(event, "schedulerRequest")
 }
 
@@ -92,21 +92,21 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 				baseRequests := scheduler.BaseResourceRequest{}
 				err := mapstructure.Decode(request, &baseRequests)
 				if err != nil {
-					return &schedulerData{}, err
+					return nil, err
 				}
 				switch baseRequests.Type {
 				case computePool:
 					computeRequest := scheduler.ComputeResourceRequest{}
 					err := mapstructure.Decode(request, &computeRequest)
 					if err != nil {
-						return &schedulerData{}, err
+						return nil, err
 					}
 					result.ResourceRequests = append(result.ResourceRequests, computeRequest)
 				case portPool:
 					portRequest := scheduler.PortBindingResourceRequest{}
 					err := mapstructure.Decode(request, &portRequest)
 					if err != nil {
-						return &schedulerData{}, err
+						return nil, err
 					}
 					result.ResourceRequests = append(result.ResourceRequests, portRequest)
 				}
@@ -120,7 +120,7 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 		}
 		return result, nil
 	}
-	return &schedulerData{}, fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
+	return nil, fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
 }
 
 type schedulerData struct {

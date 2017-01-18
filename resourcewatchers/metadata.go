@@ -72,6 +72,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		}
 
 		for resourceKey, total := range poolInits {
+			// Update totals available, not amount used
 			poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, &scheduler.ComputeResourcePool{
 				Resource: resourceKey,
 				Total:    total,
@@ -92,8 +93,10 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		}
 
 		// port pool update logic
-		portPool := w.GetPortPoolFromHost(h)
+		portPool := w.getPortPoolFromHost(h)
 		logrus.Infof("Updating PortPool from metadata. Host-UUID: %v, Port Map: %v", h.UUID, portPool.(*scheduler.PortResourcePool).PortBindingMap)
+		// Note: UpdateResourcePool for ports is effectively a no-op. It just checks if the pool has been created.
+		// This means that we cannot currently back-populate "native" containers into the scheduler.
 		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
 		if poolDoesntExist {
 			w.resourceUpdater.CreateResourcePool(h.UUID, portPool)
@@ -141,7 +144,7 @@ func (w *metadataWatcher) checkError(err error) {
 // the correctness of the port-reserve logic is highly relied on the correctness information that metadata provides
 // The method goes into the host and iterate the running containers. The port reported by metadata will get populated into the map
 // TODO: the port info is not complete as some of them are missing the public port info(native container running through docker cli)
-func (w *metadataWatcher) GetPortPoolFromHost(h metadata.Host) scheduler.ResourcePool {
+func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.ResourcePool {
 	pool := &scheduler.PortResourcePool{PortBindingMap: map[string]map[int64]bool{}}
 	pool.Resource = portPool
 	label := h.Labels[ipLabel]
@@ -166,7 +169,7 @@ func (w *metadataWatcher) GetPortPoolFromHost(h metadata.Host) scheduler.Resourc
 	} else {
 		ips := strings.Split(label, ",")
 		for _, ip := range ips {
-			pool.PortBindingMap[strings.Trim(ip, " ")] = map[int64]bool{}
+			pool.PortBindingMap[strings.TrimSpace(ip)] = map[int64]bool{}
 		}
 		containers, err := w.client.GetContainers()
 		if err != nil {
@@ -194,6 +197,7 @@ func (w *metadataWatcher) GetPortPoolFromHost(h metadata.Host) scheduler.Resourc
 
 // expect ip:public:private, return ip and public
 func parsePort(port string) (string, int64, bool) {
+	// TODO look at how it is in cattle. We changed logic to make sure it always matches this format
 	parts := strings.Split(port, ":")
 	if len(parts) == 3 {
 		publicPort, err := strconv.Atoi(parts[1])
