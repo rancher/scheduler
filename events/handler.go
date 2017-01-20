@@ -11,6 +11,11 @@ import (
 	"github.com/rancher/scheduler/scheduler"
 )
 
+const (
+	computePool = "computePool"
+	portPool    = "portPool"
+)
+
 type schedulingHandler struct {
 	scheduler *scheduler.Scheduler
 }
@@ -21,12 +26,12 @@ func (h *schedulingHandler) Reserve(event *revents.Event, client *client.Rancher
 		return errors.Wrapf(err, "Error decoding reserve event %v.", event)
 	}
 
-	err = h.scheduler.ReserveResources(data.HostID, data.Force, data.ResourceRequests)
+	result, err := h.scheduler.ReserveResources(data.HostID, data.Force, data.ResourceRequests)
 	if err != nil {
 		return errors.Wrapf(err, "Error reserving resources. Event: %v.", event)
 	}
 
-	return publish(event, nil, client)
+	return publish(event, result, client)
 }
 
 func (h *schedulingHandler) Release(event *revents.Event, client *client.RancherClient) error {
@@ -73,18 +78,49 @@ func publish(event *revents.Event, data map[string]interface{}, apiClient *clien
 }
 
 func getEventData(event *revents.Event) (*schedulerData, error) {
-	logrus.Infof("Received event: Name: %s, Event Id: %s, Resource Id: %s", event.Name, event.ID, event.ResourceID)
-	data := &schedulerData{}
-	err := decodeEvent(event, "schedulerRequest", data)
-	return data, err
+	logrus.Infof("Received event: Name: %s, Event Id: %s, Resource : %#v", event.Name, event.ID, event)
+	return decodeEvent(event, "schedulerRequest")
 }
 
-func decodeEvent(event *revents.Event, key string, target interface{}) error {
+// decodeEvent decodes the request from cattle into ResourceRequest Type
+func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
+	result := &schedulerData{}
+	result.ResourceRequests = []scheduler.ResourceRequest{}
 	if s, ok := event.Data[key]; ok {
-		err := mapstructure.Decode(s, target)
-		return err
+		if resourceRequests, ok := s.(map[string]interface{})["resourceRequests"]; ok {
+			for _, request := range resourceRequests.([]interface{}) {
+				baseRequests := scheduler.BaseResourceRequest{}
+				err := mapstructure.Decode(request, &baseRequests)
+				if err != nil {
+					return nil, err
+				}
+				switch baseRequests.Type {
+				case computePool:
+					computeRequest := scheduler.ComputeResourceRequest{}
+					err := mapstructure.Decode(request, &computeRequest)
+					if err != nil {
+						return nil, err
+					}
+					result.ResourceRequests = append(result.ResourceRequests, computeRequest)
+				case portPool:
+					portRequest := scheduler.PortBindingResourceRequest{}
+					err := mapstructure.Decode(request, &portRequest)
+					if err != nil {
+						return nil, err
+					}
+					result.ResourceRequests = append(result.ResourceRequests, portRequest)
+				}
+			}
+		}
+		if hostID, ok := s.(map[string]interface{})["hostID"]; ok {
+			result.HostID = hostID.(string)
+		}
+		if force, ok := s.(map[string]interface{})["force"]; ok {
+			result.Force = force.(bool)
+		}
+		return result, nil
 	}
-	return fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
+	return nil, fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
 }
 
 type schedulerData struct {
