@@ -21,7 +21,7 @@ func (s *MetadataTestSuite) SetUpSuite(c *check.C) {
 }
 
 func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
-	sched := scheduler.NewScheduler()
+	sched := scheduler.NewScheduler(-1)
 
 	change := make(chan string)
 	changeDone := make(chan int)
@@ -67,7 +67,7 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 }
 
 func (s *MetadataTestSuite) TestPanicLogic(c *check.C) {
-	sched := scheduler.NewScheduler()
+	sched := scheduler.NewScheduler(-1)
 
 	change := make(chan string)
 	changeDone := make(chan int)

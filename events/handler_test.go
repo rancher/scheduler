@@ -21,7 +21,8 @@ func (s *MetadataTestSuite) SetUpSuite(c *check.C) {
 }
 
 func (s *MetadataTestSuite) TestPrioritizeEvent(c *check.C) {
-	sched := scheduler.NewScheduler()
+	sched := scheduler.NewScheduler(-1)
+
 	sched.CreateResourcePool("1", "memory", 1, 0)
 	handler := &schedulingHandler{
 		scheduler: sched,

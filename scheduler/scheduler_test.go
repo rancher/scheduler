@@ -25,7 +25,7 @@ type rezTest struct {
 }
 
 func (s *SchedulerTestSuite) TestReserveResource(c *check.C) {
-	scheduler := NewScheduler()
+	scheduler := NewScheduler(-1)
 
 	err := scheduler.CreateResourcePool("1", "memory", 3, 0)
 	if err != nil {
@@ -104,7 +104,8 @@ func (s *SchedulerTestSuite) TestForceReserve(c *check.C) {
 
 func (s *SchedulerTestSuite) TestRemoveHost(c *check.C) {
 	scheduler := &Scheduler{
-		hosts: map[string]*host{},
+		hosts:     map[string]*host{},
+		sleepTime: -1,
 	}
 	err := scheduler.CreateResourcePool("1", "memory", 1, 0)
 	c.Check(err, check.IsNil)
@@ -163,6 +164,64 @@ func (s *SchedulerTestSuite) TestBadResourceReservation(c *check.C) {
 	// Release to above total, just sets pool.used to 0.
 	err = scheduler.ReleaseResources("1", []ResourceRequest{{Amount: 1, Resource: "storage.size"}, {Amount: 4, Resource: "memory"}})
 	c.Assert(err, check.IsNil)
+}
+
+func (s *SchedulerTestSuite) TestRaceConditionPrioritize(c *check.C) {
+	scheduler := NewScheduler(1)
+
+	err := scheduler.CreateResourcePool("1", "instanceReservation", 500, 0)
+	if err != nil {
+		c.Fatal(err)
+	}
+	err = scheduler.CreateResourcePool("1", "memory", 100, 0)
+	if err != nil {
+		c.Fatal(err)
+	}
+	err = scheduler.CreateResourcePool("2", "instanceReservation", 500, 0)
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	err = scheduler.CreateResourcePool("2", "memory", 50, 0)
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	tests := []rezTest{
+		{"1", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"1", "2"}},
+
+		{"2", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"2", "1"}},
+
+		{"3", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"1", "2"}},
+
+		{"4", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"2", "1"}},
+
+		{"5", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"1", "2"}},
+
+		{"6", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"2", "1"}},
+
+		{"7", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"1", "2"}},
+
+		{"8", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"2", "1"}},
+
+		{"9", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"1", "2"}},
+
+		{"10", false, []ResourceRequest{{Amount: 1, Resource: "instanceReservation"}}, []string{"2", "1"}},
+	}
+	checkOnlyPrioritization(scheduler, tests, c)
+}
+
+func checkOnlyPrioritization(scheduler *Scheduler, tests []rezTest, c *check.C) {
+	for _, t := range tests {
+		_, err := scheduler.PrioritizeCandidates(t.resourceRequests)
+		if err != nil {
+			c.Fatal(err)
+		}
+		c.Logf("Checking %v", t.id)
+	}
+	scheduler.mu.RLock()
+	c.Assert(scheduler.hosts["1"].pools["instanceReservation"].used, check.Equals, scheduler.hosts["2"].pools["instanceReservation"].used)
+	scheduler.mu.RUnlock()
 }
 
 func checkPrioritizationAndReserve(scheduler *Scheduler, tests []rezTest, c *check.C) {

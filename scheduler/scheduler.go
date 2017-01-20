@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
+	"time"
 )
 
 type ResourceUpdater interface {
@@ -31,20 +32,22 @@ type host struct {
 	pools map[string]*resourcePool
 }
 
-func NewScheduler() *Scheduler {
+func NewScheduler(sleepTime int) *Scheduler {
 	return &Scheduler{
-		hosts: map[string]*host{},
+		hosts:     map[string]*host{},
+		sleepTime: sleepTime,
 	}
 }
 
 type Scheduler struct {
-	mu    sync.RWMutex
-	hosts map[string]*host
+	mu        sync.RWMutex
+	hosts     map[string]*host
+	sleepTime int
 }
 
 func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest) ([]string, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	hosts := filter(s.hosts, resourceRequests)
 
@@ -58,6 +61,7 @@ func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest) ([]
 	}
 	sort.Sort(hs)
 	sortedIDs := ids(hs.hosts)
+	s.reserveTempPool(sortedIDs[0], resourceRequests)
 	return sortedIDs, nil
 }
 
@@ -105,6 +109,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 				break
 			}
 			p.used = p.used - rr.Amount
+
 		}
 		return err
 	}
@@ -204,4 +209,19 @@ type OverReserveError struct {
 
 func (e OverReserveError) Error() string {
 	return fmt.Sprintf("Not enough available resources on host %v to reserve %v.", e.hostID, e.resourceRequest)
+}
+
+func (s *Scheduler) reserveTempPool(hostID string, requests []ResourceRequest) {
+	if s.sleepTime >= 0 {
+		for _, rr := range requests {
+			pool := s.hosts[hostID].pools[rr.Resource]
+			pool.used += rr.Amount
+			go func(amount int64, t int) {
+				time.Sleep(time.Second * time.Duration(t))
+				s.mu.Lock()
+				pool.used -= amount
+				s.mu.Unlock()
+			}(rr.Amount, s.sleepTime)
+		}
+	}
 }
