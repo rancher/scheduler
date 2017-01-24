@@ -12,6 +12,7 @@ import (
 	"github.com/rancher/scheduler/resourcewatchers"
 	"github.com/rancher/scheduler/scheduler"
 	"github.com/urfave/cli"
+	"strconv"
 )
 
 const metadataURL = "http://rancher-metadata/2015-12-19"
@@ -29,7 +30,14 @@ func main() {
 }
 
 func run(c *cli.Context) error {
-	scheduler := scheduler.NewScheduler()
+	sleep := os.Getenv("CATTLE_SCHEDULER_SLEEPTIME")
+	time := 1
+	if sleep != "" {
+		if val, err := strconv.Atoi(sleep); err != nil {
+			time = val
+		}
+	}
+	scheduler := scheduler.NewScheduler(time)
 	mdClient := metadata.NewClient(metadataURL)
 
 	url := os.Getenv("CATTLE_URL")
