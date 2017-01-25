@@ -50,86 +50,46 @@ func (p *PortResourcePool) IsIPQualifiedForRequests(ip string, specs []PortSpec)
 
 // ReserveIPPort reserve an ip and port from a port pool
 func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string) error {
+	portMap := map[string]map[int64]bool{}
+	ghostMap := map[string]map[int64]bool{}
 	if protocol == "tcp" {
-		if _, ok := p.PortBindingMapTCP[ip]; !ok {
-			// if ip can't be found and it is not 0.0.0.0,  reserve on the ghost map
-			if ip != defaultIP {
-				if _, ok := p.GhostMapTCP[ip]; !ok {
-					p.GhostMapTCP[ip] = map[int64]bool{}
-					logrus.Infof("Creating ghost map for IP %v on protocol %v", ip, protocol)
-					p.GhostMapTCP[ip][port] = true
-					logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
-					return nil
-				}
-				if !p.GhostMapTCP[ip][port] {
-					p.GhostMapTCP[ip][port] = true
-					logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
-					return nil
-				}
-				return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
-			}
-			// in this case, 0.0.0.0 is not on the pool so there must be multiple ip on the host
-			// reserve all ips on the specified port
-			success := true
-			for key := range p.PortBindingMapTCP {
-				if !p.PortBindingMapTCP[key][port] {
-					p.PortBindingMapTCP[key][port] = true
-					continue
-				}
-				success = false
-				break
-			}
-			for key := range p.GhostMapTCP {
-				if !p.GhostMapTCP[key][port] {
-					p.GhostMapTCP[key][port] = true
-					continue
-				}
-				success = false
-				break
-			}
-			if success {
-				return nil
-			}
-			return errors.New("The public ip address specified can't be found on the pool")
-		}
-		if !p.PortBindingMapTCP[ip][port] {
-			p.PortBindingMapTCP[ip][port] = true
-			logrus.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
-			return nil
-		}
-		return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
+		portMap = p.PortBindingMapTCP
+		ghostMap = p.GhostMapTCP
+	} else {
+		portMap = p.PortBindingMapUDP
+		ghostMap = p.GhostMapUDP
 	}
-	if _, ok := p.PortBindingMapUDP[ip]; !ok {
+	if _, ok := portMap[ip]; !ok {
 		// if ip can't be found and it is not 0.0.0.0,  reserve on the ghost map
 		if ip != defaultIP {
-			if _, ok := p.GhostMapUDP[ip]; !ok {
-				p.GhostMapUDP[ip] = map[int64]bool{}
+			if _, ok := ghostMap[ip]; !ok {
+				ghostMap[ip] = map[int64]bool{}
 				logrus.Infof("Creating ghost map for IP %v on protocol %v", ip, protocol)
-				p.GhostMapUDP[ip][port] = true
+				ghostMap[ip][port] = true
 				logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
 				return nil
 			}
-			if !p.GhostMapUDP[ip][port] {
-				p.GhostMapUDP[ip][port] = true
+			if !ghostMap[ip][port] {
+				ghostMap[ip][port] = true
 				logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
 				return nil
 			}
-			return errors.Errorf("Port %v is already used in ip %v in ghost map on protocol %v", port, ip, protocol)
+			return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
 		}
 		// in this case, 0.0.0.0 is not on the pool so there must be multiple ip on the host
 		// reserve all ips on the specified port
 		success := true
-		for key := range p.PortBindingMapUDP {
-			if !p.PortBindingMapUDP[key][port] {
-				p.PortBindingMapUDP[key][port] = true
+		for key := range portMap {
+			if !portMap[key][port] {
+				portMap[key][port] = true
 				continue
 			}
 			success = false
 			break
 		}
-		for key := range p.GhostMapUDP {
-			if !p.GhostMapUDP[key][port] {
-				p.GhostMapUDP[key][port] = true
+		for key := range ghostMap {
+			if !ghostMap[key][port] {
+				ghostMap[key][port] = true
 				continue
 			}
 			success = false
@@ -140,34 +100,31 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string)
 		}
 		return errors.New("The public ip address specified can't be found on the pool")
 	}
-	if !p.PortBindingMapUDP[ip][port] {
-		p.PortBindingMapUDP[ip][port] = true
+	if !portMap[ip][port] {
+		portMap[ip][port] = true
 		logrus.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
 		return nil
 	}
 	return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
-
 }
 
 func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string) {
+	portMap := map[string]map[int64]bool{}
+	ghostMap := map[string]map[int64]bool{}
 	if protocol == "tcp" {
-		if portsMap, ok := p.PortBindingMapTCP[ip]; ok {
-			delete(portsMap, port)
-			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
-		} else if ghostMap, ok := p.GhostMapTCP[ip]; ok {
-			delete(ghostMap, port)
-			logrus.Infof("Port %v is released on IP %v for ghost map", port, ip)
-		}
+		portMap = p.PortBindingMapTCP
+		ghostMap = p.GhostMapTCP
 	} else {
-		if portsMap, ok := p.PortBindingMapUDP[ip]; ok {
-			delete(portsMap, port)
-			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
-		} else if ghostMap, ok := p.GhostMapUDP[ip]; ok {
-			delete(ghostMap, port)
-			logrus.Infof("Port %v is released on IP %v for ghost map", port, ip)
-		}
+		portMap = p.PortBindingMapUDP
+		ghostMap = p.GhostMapUDP
 	}
-
+	if _, ok := portMap[ip]; ok {
+		delete(portMap[ip], port)
+		logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+	} else if _, ok := ghostMap[ip]; ok {
+		delete(ghostMap[ip], port)
+		logrus.Infof("Port %v is released on IP %v for ghost map on protocol %v", port, ip, protocol)
+	}
 }
 
 func (p *PortResourcePool) ArePortsAvailable(ports []PortSpec) bool {

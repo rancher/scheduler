@@ -79,32 +79,22 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 					// if user doesn't not specify the public port, scheduler will pick up an random port for them
 					// find the random port
 					// I don't believe the ports will get exhausted
+					portMap := map[int64]bool{}
 					if spec.Protocol == "tcp" {
-						portMap := pool.PortBindingMapTCP[ip]
-						port := findRandomPort(portMap)
-						portMap[port] = true
-						logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
-						result := map[string]interface{}{}
-						result[allocatedIP] = ip
-						result[publicPort] = port
-						result[privatePort] = spec.PrivatePort
-						result[protocol] = spec.Protocol
-						portReservation = append(portReservation, result)
-						continue
+						portMap = pool.PortBindingMapTCP[ip]
 					} else {
-						portMap := pool.PortBindingMapUDP[ip]
-						port := findRandomPort(portMap)
-						portMap[port] = true
-						logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
-						result := map[string]interface{}{}
-						result[allocatedIP] = ip
-						result[publicPort] = port
-						result[privatePort] = spec.PrivatePort
-						result[protocol] = spec.Protocol
-						portReservation = append(portReservation, result)
-						continue
+						portMap = pool.PortBindingMapUDP[ip]
 					}
-
+					port := findRandomPort(portMap)
+					portMap[port] = true
+					logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
+					result := map[string]interface{}{}
+					result[allocatedIP] = ip
+					result[publicPort] = port
+					result[privatePort] = spec.PrivatePort
+					result[protocol] = spec.Protocol
+					portReservation = append(portReservation, result)
+					continue
 				}
 			}
 			found = true
