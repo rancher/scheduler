@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"strconv"
+
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher-metadata/metadata"
@@ -12,7 +14,6 @@ import (
 	"github.com/rancher/scheduler/resourcewatchers"
 	"github.com/rancher/scheduler/scheduler"
 	"github.com/urfave/cli"
-	"strconv"
 )
 
 const metadataURL = "http://rancher-metadata/2015-12-19"
