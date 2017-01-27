@@ -40,7 +40,6 @@ type PortBindingResourceRequest struct {
 	InstanceID   string
 	InstanceUUID string
 	PortRequests []PortSpec
-	Phase        string
 }
 
 func (p PortBindingResourceRequest) GetResourceType() string {
