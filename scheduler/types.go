@@ -38,7 +38,9 @@ type PortSpec struct {
 type PortBindingResourceRequest struct {
 	Resource     string
 	InstanceID   string
+	InstanceUUID string
 	PortRequests []PortSpec
+	Phase        string
 }
 
 func (p PortBindingResourceRequest) GetResourceType() string {
@@ -66,10 +68,10 @@ func (c *ComputeResourcePool) GetPoolType() string {
 
 type PortResourcePool struct {
 	Resource          string
-	PortBindingMapTCP map[string]map[int64]bool
-	PortBindingMapUDP map[string]map[int64]bool
-	GhostMapTCP       map[string]map[int64]bool
-	GhostMapUDP       map[string]map[int64]bool
+	PortBindingMapTCP map[string]map[int64]string
+	PortBindingMapUDP map[string]map[int64]string
+	GhostMapTCP       map[string]map[int64]string
+	GhostMapUDP       map[string]map[int64]string
 }
 
 func (p *PortResourcePool) GetPoolResourceType() string {
