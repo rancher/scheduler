@@ -289,7 +289,7 @@ func (s *SchedulerTestSuite) TestPortReservation(c *check.C) {
 
 	// should fail because we have reserved on ghost map
 	specs = []PortSpec{{IPAddress: "192.168.1.5", PublicPort: 8085, PrivatePort: 8085, Protocol: "tcp"}}
-	_, err = scheduler.ReserveResources("1", false, []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: specs}})
+	_, err = scheduler.ReserveResources("1", false, []ResourceRequest{PortBindingResourceRequest{InstanceID: "2", InstanceUUID: "12346", Resource: "portReservation", PortRequests: specs}})
 	c.Assert(err, check.NotNil)
 }
 

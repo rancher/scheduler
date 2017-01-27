@@ -180,10 +180,10 @@ func (s *MetadataTestSuite) TestProcessPhase(c *check.C) {
 	err = handler.Reserve(event, mockClient)
 	c.Assert(err, check.IsNil)
 
-	req["phase"] = "instance.start1"
-	//set phase to instance.start1, then should fail
+	req["phase"] = "instance.start"
+	//set phase to instance.start, then should also pass since it is the same instance
 	err = handler.Reserve(event, mockClient)
-	c.Assert(err, check.NotNil)
+	c.Assert(err, check.IsNil)
 
 	// release port by instance.stop
 	req["phase"] = "instance.stop"

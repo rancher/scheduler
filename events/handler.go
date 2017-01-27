@@ -114,7 +114,6 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 					if err != nil {
 						return nil, err
 					}
-					portRequest.Phase = phase
 					result.ResourceRequests = append(result.ResourceRequests, portRequest)
 				}
 			}

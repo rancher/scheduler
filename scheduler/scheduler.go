@@ -49,7 +49,7 @@ func (p *PortResourcePool) IsIPQualifiedForRequests(ip string, specs []PortSpec)
 }
 
 // ReserveIPPort reserve an ip and port from a port pool
-func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string, phase string, instanceUUID string) error {
+func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string, instanceUUID string) error {
 	portMap := map[string]map[int64]string{}
 	ghostMap := map[string]map[int64]string{}
 	if protocol == "tcp" {
@@ -74,12 +74,9 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 				logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
 				return nil
 			}
-			// check if the phase is instance.start and the instance is allocated
-			if phase == "instance.start" {
-				if instanceUUID == ghostMap[ip][port] {
-					// the instance ID is equal to the id in the map, return nil
-					return nil
-				}
+			if instanceUUID == ghostMap[ip][port] {
+				// the instance ID is equal to the id in the map, return nil
+				return nil
 			}
 			return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
 		}
@@ -91,10 +88,8 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 				portMap[key][port] = instanceUUID
 				continue
 			}
-			if phase == "instance.start" {
-				if instanceUUID == portMap[ip][port] {
-					continue
-				}
+			if instanceUUID == portMap[ip][port] {
+				continue
 			}
 			success = false
 			break
@@ -104,10 +99,8 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 				ghostMap[key][port] = instanceUUID
 				continue
 			}
-			if phase == "instance.start" {
-				if instanceUUID == ghostMap[ip][port] {
-					continue
-				}
+			if instanceUUID == ghostMap[ip][port] {
+				continue
 			}
 			success = false
 			break
@@ -122,10 +115,8 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 		logrus.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
 		return nil
 	}
-	if phase == "instance.start" {
-		if instanceUUID == portMap[ip][port] {
-			return nil
-		}
+	if instanceUUID == portMap[ip][port] {
+		return nil
 	}
 	return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
 }
