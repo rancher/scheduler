@@ -198,5 +198,9 @@ func (c *mockMDPortClient) GetContainers() ([]metadata.Container, error) {
 	if c.errorContainers {
 		return nil, fmt.Errorf("Doesn't work")
 	}
-	return []metadata.Container{{UUID: "12345", State: "running", Ports: []string{"192.168.1.1:8081:8081/tcp", "192.168.1.2:8081:8081/tcp", "192.168.1.1:8082:8082/udp", "192.168.1.2:8082:8082/udp"}, HostUUID: "host-a"}, {UUID: "12345", State: "running", Ports: []string{"192.168.1.3:8081:8081/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"}}, nil
+	return []metadata.Container{
+		{UUID: "12345", State: "running", Ports: []string{"192.168.1.1:8081:8081/tcp", "192.168.1.2:8081:8081/tcp", "192.168.1.1:8082:8082/udp", "192.168.1.2:8082:8082/udp"}, HostUUID: "host-a"},
+		{UUID: "12346", State: "running", Ports: []string{"192.168.1.3:8081:8081/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"},
+		{UUID: "12347", State: "stopped", Ports: []string{"192.168.1.3:8083:8083/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"},
+	}, nil
 }
