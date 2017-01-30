@@ -159,7 +159,7 @@ func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.Resourc
 			w.checkError(err)
 		}
 		for _, container := range containers {
-			if container.HostUUID == h.UUID {
+			if container.HostUUID == h.UUID && container.State == "running" {
 				for _, portString := range container.Ports {
 					ip, port, prot, ok := parsePort(portString)
 					if ok {
@@ -197,7 +197,7 @@ func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.Resourc
 			w.checkError(err)
 		}
 		for _, container := range containers {
-			if container.HostUUID == h.UUID {
+			if container.HostUUID == h.UUID && container.State == "running" {
 				for _, portString := range container.Ports {
 					ip, port, prot, ok := parsePort(portString)
 					if ok {
