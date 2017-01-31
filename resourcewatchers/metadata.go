@@ -154,87 +154,51 @@ func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.Resourc
 		// only one ip, set ip as 0.0.0.0
 		pool.PortBindingMapTCP[defaultIP] = map[int64]string{}
 		pool.PortBindingMapUDP[defaultIP] = map[int64]string{}
-		containers, err := w.client.GetContainers()
-		if err != nil {
-			w.checkError(err)
-		}
-		for _, container := range containers {
-			if container.HostUUID == h.UUID && container.State == "running" {
-				for _, portString := range container.Ports {
-					ip, port, prot, ok := parsePort(portString)
-					if ok {
-						if prot == "tcp" {
-							if _, ok := pool.PortBindingMapTCP[ip]; ok {
-								pool.PortBindingMapTCP[ip][port] = container.UUID
-							} else {
-								if _, ok := pool.GhostMapTCP[ip]; !ok {
-									pool.GhostMapTCP[ip] = map[int64]string{}
-								}
-								pool.GhostMapTCP[ip][port] = container.UUID
-							}
-						} else {
-							if _, ok := pool.PortBindingMapUDP[ip]; ok {
-								pool.PortBindingMapUDP[ip][port] = container.UUID
-							} else {
-								if _, ok := pool.GhostMapUDP[ip]; !ok {
-									pool.GhostMapUDP[ip] = map[int64]string{}
-								}
-								pool.GhostMapUDP[ip][port] = container.UUID
-							}
-						}
-					}
-				}
-			}
-		}
 	} else {
 		ips := strings.Split(label, ",")
 		for _, ip := range ips {
 			pool.PortBindingMapTCP[strings.TrimSpace(ip)] = map[int64]string{}
 			pool.PortBindingMapUDP[strings.TrimSpace(ip)] = map[int64]string{}
 		}
-		containers, err := w.client.GetContainers()
-		if err != nil {
-			w.checkError(err)
-		}
-		for _, container := range containers {
-			if container.HostUUID == h.UUID && container.State == "running" {
-				for _, portString := range container.Ports {
-					ip, port, prot, ok := parsePort(portString)
-					if ok {
-						if prot == "tcp" {
-							if _, ok := pool.PortBindingMapTCP[ip]; ok {
-								pool.PortBindingMapTCP[ip][port] = container.UUID
-							} else if ip == defaultIP {
-								for ip := range pool.PortBindingMapTCP {
-									pool.PortBindingMapTCP[ip][port] = container.UUID
-								}
-							} else {
-								if _, ok := pool.GhostMapTCP[ip]; !ok {
-									pool.GhostMapTCP[ip] = map[int64]string{}
-								}
-								pool.GhostMapTCP[ip][port] = container.UUID
-							}
-						} else {
-							if _, ok := pool.PortBindingMapUDP[ip]; ok {
-								pool.PortBindingMapUDP[ip][port] = container.UUID
-							} else if ip == defaultIP {
-								for ip := range pool.PortBindingMapUDP {
-									pool.PortBindingMapUDP[ip][port] = container.UUID
-								}
-							} else {
-								if _, ok := pool.GhostMapUDP[ip]; !ok {
-									pool.GhostMapUDP[ip] = map[int64]string{}
-								}
-								pool.GhostMapUDP[ip][port] = container.UUID
-							}
-						}
-
+	}
+	containers, err := w.client.GetContainers()
+	if err != nil {
+		w.checkError(err)
+	}
+	for _, container := range containers {
+		if container.HostUUID == h.UUID && container.State == "running" {
+			for _, portString := range container.Ports {
+				if ip, port, proto, ok := parsePort(portString); ok {
+					if proto == "tcp" {
+						setPortBinding(pool.PortBindingMapTCP, pool.GhostMapTCP, ip, port, container)
+					} else {
+						setPortBinding(pool.PortBindingMapUDP, pool.GhostMapUDP, ip, port, container)
 					}
 				}
 			}
 		}
 	}
 	return pool
+}
+
+func setPortBinding(bindings map[string]map[int64]string, ghostBindings map[string]map[int64]string, ip string,
+	port int64, container metadata.Container) {
+	uuid := container.UUID
+	if depUUID := container.Labels["io.rancher.service.deployment.unit"]; depUUID != "" {
+		uuid = depUUID
+	}
+	if _, ok := bindings[ip]; ok {
+		bindings[ip][port] = uuid
+	} else if ip == defaultIP {
+		for ip := range bindings {
+			bindings[ip][port] = uuid
+		}
+	} else {
+		if _, ok := ghostBindings[ip]; !ok {
+			ghostBindings[ip] = map[int64]string{}
+		}
+		ghostBindings[ip][port] = uuid
+	}
 }
 
 // expect ip:public:private, return ip and public

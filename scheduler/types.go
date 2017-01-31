@@ -38,7 +38,7 @@ type PortSpec struct {
 type PortBindingResourceRequest struct {
 	Resource     string
 	InstanceID   string
-	InstanceUUID string
+	ResourceUUID string
 	PortRequests []PortSpec
 }
 

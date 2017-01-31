@@ -47,8 +47,8 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 		if pool.IsIPQualifiedForRequests(ip, request.PortRequests) {
 			for _, spec := range request.PortRequests {
 				if spec.IPAddress != "" {
-					// if user has specified the public ip address, there is nothing to do we can do in the scheduler
-					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.InstanceUUID); err != nil {
+					// if user has specified the public ip address, there is nothing we can do in the scheduler
+					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.ResourceUUID); err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
 					}

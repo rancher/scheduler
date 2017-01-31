@@ -124,7 +124,7 @@ func (s *MetadataTestSuite) TestProcessPhase(c *check.C) {
 				"type":         "portPool",
 				"resource":     "portReservation",
 				"instanceID":   "1",
-				"instanceUUID": "12345",
+				"resourceUUID": "12345",
 				"portRequests": []map[string]interface{}{
 					{
 						"ipAddress":   "192.168.1.1",
@@ -145,7 +145,7 @@ func (s *MetadataTestSuite) TestProcessPhase(c *check.C) {
 				"type":         "portPool",
 				"resource":     "portReservation",
 				"instanceID":   "2",
-				"instanceUUID": "12346",
+				"resourceUUID": "12346",
 				"portRequests": []map[string]interface{}{
 					{
 						"ipAddress":   "192.168.1.1",

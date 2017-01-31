@@ -364,7 +364,8 @@ func (s *Scheduler) CreateResourcePool(hostUUID string, pool ResourcePool) error
 		for ip := range p.PortBindingMapTCP {
 			ipset = append(ipset, ip)
 		}
-		logrus.Infof("Adding resource pool [%v], ip set [%v], ports map tcp [%v], ports map udp [%v]", p.Resource, ipset, p.PortBindingMapTCP, p.PortBindingMapUDP)
+		logrus.Infof("Adding resource pool [%v], ip set %v, ports map tcp %v, ports map udp %v for host %v", p.Resource,
+			ipset, p.PortBindingMapTCP, p.PortBindingMapUDP, hostUUID)
 		h.pools[p.Resource] = p
 	}
 
