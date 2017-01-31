@@ -53,7 +53,7 @@ func run(c *cli.Context) error {
 		}
 	}
 	scheduler := scheduler.NewScheduler(time)
-	mdClient := metadata.NewClient(fmt.Sprintf("http://%s/2015-12-19", c.String("metadata-address")))
+	mdClient := metadata.NewClient(fmt.Sprintf("http://%s/2016-07-29", c.String("metadata-address")))
 
 	url := os.Getenv("CATTLE_URL")
 	ak := os.Getenv("CATTLE_ACCESS_KEY")
