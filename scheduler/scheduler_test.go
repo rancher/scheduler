@@ -426,6 +426,36 @@ func (s *SchedulerTestSuite) TestRaceConditionPrioritize(c *check.C) {
 	checkOnlyPrioritization(scheduler, tests, c)
 }
 
+func (s *SchedulerTestSuite) TestReservePortsWithGhostIPEntry(c *check.C) {
+	scheduler := &Scheduler{
+		hosts: map[string]*host{},
+	}
+	err := scheduler.CreateResourcePool("1", &PortResourcePool{
+		Resource: "portReservation",
+		PortBindingMapTCP: map[string]map[int64]string{
+			"0.0.0.0": {},
+		},
+		GhostMapTCP: map[string]map[int64]string{
+			"192.168.1.1": {
+				80: "12345",
+			},
+		},
+		PortBindingMapUDP: map[string]map[int64]string{},
+		GhostMapUDP:       map[string]map[int64]string{},
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
+	specs := []PortSpec{{PublicPort: 80, PrivatePort: 80, Protocol: "tcp"}}
+	rrequests := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	result, err := scheduler.PrioritizeCandidates(rrequests)
+	c.Assert(result, check.HasLen, 0)
+
+	_, err = scheduler.ReserveResources("1", false, rrequests)
+	c.Assert(err, check.NotNil)
+	c.Assert(err, check.ErrorMatches, ".*Port is used by IP 192.168.1.1.*")
+}
+
 func getPortSlots(pool *PortResourcePool, port int64, protocol string) int {
 	if protocol == "tcp" {
 		slots := 0
