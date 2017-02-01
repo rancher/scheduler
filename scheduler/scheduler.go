@@ -111,6 +111,14 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 		return errors.New("The public ip address specified can't be found on the pool")
 	}
 	if portMap[ip][port] == "" {
+		// if ip is 0.0.0.0, do a check on all ghost ip before reserving
+		if ip == defaultIP {
+			for gip, m := range ghostMap {
+				if m[port] != "" {
+					return errors.Errorf("Can not reserve Port %v on IP %v, Port is used by IP %v", port, ip, gip)
+				}
+			}
+		}
 		portMap[ip][port] = instanceUUID
 		logrus.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
 		return nil
@@ -145,6 +153,24 @@ L:
 	for ip, portMap := range p.PortBindingMapTCP {
 		portMapTCP := portMap
 		portMapUDP := p.PortBindingMapUDP[ip]
+		if ip == defaultIP {
+			// if ip is 0.0.0.0, do a check for all ips on the ghost map
+			for _, port := range ports {
+				if port.Protocol == "tcp" {
+					for _, m := range p.GhostMapTCP {
+						if m[port.PublicPort] != "" {
+							return false
+						}
+					}
+				} else {
+					for _, m := range p.GhostMapUDP {
+						if m[port.PublicPort] != "" {
+							return false
+						}
+					}
+				}
+			}
+		}
 		for _, port := range ports {
 			if port.Protocol == "tcp" {
 				if portMapTCP[port.PublicPort] != "" {
