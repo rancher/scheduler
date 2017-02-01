@@ -153,12 +153,12 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string, u
 		ghostMap = p.GhostMapUDP
 	}
 	if _, ok := portMap[ip]; ok {
-		if portMap[ip][port] == uuid {
+		if portMap[ip][port] == uuid || uuid == "" {
 			delete(portMap[ip], port)
 			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
 		}
 	} else if _, ok := ghostMap[ip]; ok {
-		if ghostMap[ip][port] == uuid {
+		if ghostMap[ip][port] == uuid || uuid == "" {
 			delete(ghostMap[ip], port)
 			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
 		}
@@ -166,13 +166,13 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string, u
 	if ip == defaultIP {
 		// if ip is 0.0.0.0, also release all port on other pools
 		for nip := range portMap {
-			if portMap[nip][port] == uuid {
+			if portMap[nip][port] == uuid || uuid == "" {
 				delete(portMap[nip], port)
 				logrus.Infof("Port %v is released on IP %v on protocol %v", port, nip, protocol)
 			}
 		}
 		for gip := range ghostMap {
-			if ghostMap[gip][port] == uuid {
+			if ghostMap[gip][port] == uuid || uuid == "" {
 				delete(ghostMap[gip], port)
 				logrus.Infof("Port %v is released on IP %v on protocol %v", port, gip, protocol)
 			}
