@@ -45,6 +45,10 @@ func main() {
 }
 
 func run(c *cli.Context) error {
+	if os.Getenv("RANCHER_DEBUG") == "true" {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+
 	sleep := os.Getenv("CATTLE_SCHEDULER_SLEEPTIME")
 	time := 1
 	if sleep != "" {

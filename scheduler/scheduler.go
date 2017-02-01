@@ -22,7 +22,7 @@ const (
 	defaultIP   = "0.0.0.0"
 )
 
-func (p *PortResourcePool) IsIPQualifiedForRequests(ip string, specs []PortSpec) bool {
+func (p *PortResourcePool) IsIPQualifiedForRequests(ip, uuid string, specs []PortSpec) bool {
 	qualified := true
 	for _, spec := range specs {
 		// iterate through all the requests, then check if port is used
@@ -34,12 +34,12 @@ func (p *PortResourcePool) IsIPQualifiedForRequests(ip string, specs []PortSpec)
 			m = p.PortBindingMapUDP[ip]
 		}
 		if spec.IPAddress != "" {
-			if spec.IPAddress == ip && m[spec.PublicPort] != "" {
+			if spec.IPAddress == ip && m[spec.PublicPort] != "" && m[spec.PublicPort] != uuid {
 				qualified = false
 				break
 			}
 		} else {
-			if m[spec.PublicPort] != "" {
+			if m[spec.PublicPort] != "" && m[spec.PublicPort] != uuid {
 				qualified = false
 				break
 			}
@@ -218,7 +218,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	var err error
 	data := map[string]interface{}{}
 	portsRollback := []map[string]interface{}{}
-	reserveLog := bytes.NewBufferString(fmt.Sprintf("New pool amount on host %v:", hostID))
+	var reserveLog *bytes.Buffer
 L:
 	for _, rr := range resourceRequests {
 		p, ok := h.pools[rr.GetResourceType()]
@@ -238,15 +238,18 @@ L:
 
 			pool.Used = pool.Used + request.Amount
 			i++
+			if reserveLog == nil {
+				reserveLog = bytes.NewBufferString(fmt.Sprintf("New pool amount on host %v:", hostID))
+			}
 			reserveLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", request.Resource, pool.Total, pool.Used))
 		case portPool:
 			pool := p.(*PortResourcePool)
 			request := rr.(PortBindingResourceRequest)
-			result, er := PortReserve(pool, request)
-			logrus.Infof("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", hostID, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
-			if er != nil {
-				err = er
-				portsRollback = append(portsRollback, result)
+			result, e := PortReserve(pool, request)
+			portsRollback = append(portsRollback, result)
+			logrus.Debugf("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", hostID, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
+			if e != nil && !force {
+				err = e
 				break L
 			} else {
 				if _, ok := data[request.Resource]; !ok {
@@ -258,7 +261,9 @@ L:
 	}
 
 	if err == nil {
-		logrus.Info(reserveLog.String())
+		if reserveLog != nil {
+			logrus.Info(reserveLog.String())
+		}
 	} else {
 		logrus.Error(err)
 		// rollback

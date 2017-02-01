@@ -44,7 +44,7 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 	found := false
 	// since all the port requests should only land on one ip, loop through all the ip and find the available one
 	for ip := range pool.PortBindingMapTCP {
-		if pool.IsIPQualifiedForRequests(ip, request.PortRequests) {
+		if pool.IsIPQualifiedForRequests(ip, request.ResourceUUID, request.PortRequests) {
 			for _, spec := range request.PortRequests {
 				if spec.IPAddress != "" {
 					// if user has specified the public ip address, there is nothing we can do in the scheduler
@@ -62,12 +62,11 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 				}
 				if spec.PublicPort != 0 {
 					// if user has specified public port, find an ip for it
-					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol, request.InstanceID)
+					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol, request.ResourceUUID)
 					if err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
 					}
-					logrus.Infof("Public port %v reserved for ip address %v on protocol %v", spec.PublicPort, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
 					result[publicPort] = spec.PublicPort
@@ -79,14 +78,14 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 					// if user doesn't not specify the public port, scheduler will pick up an random port for them
 					// find the random port
 					// I don't believe the ports will get exhausted
-					portMap := map[int64]string{}
+					var portMap map[int64]string
 					if spec.Protocol == "tcp" {
 						portMap = pool.PortBindingMapTCP[ip]
 					} else {
 						portMap = pool.PortBindingMapUDP[ip]
 					}
 					port := findRandomPort(portMap)
-					portMap[port] = request.InstanceID
+					portMap[port] = request.ResourceUUID
 					logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
