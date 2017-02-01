@@ -86,6 +86,10 @@ func getEventData(event *revents.Event) (*schedulerData, error) {
 func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 	result := &schedulerData{}
 	result.ResourceRequests = []scheduler.ResourceRequest{}
+	phase, ok := event.Data[key].(map[string]interface{})["phase"].(string)
+	if !ok {
+		phase = ""
+	}
 	if s, ok := event.Data[key]; ok {
 		if resourceRequests, ok := s.(map[string]interface{})["resourceRequests"]; ok {
 			for _, request := range resourceRequests.([]interface{}) {
@@ -101,7 +105,9 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 					if err != nil {
 						return nil, err
 					}
-					result.ResourceRequests = append(result.ResourceRequests, computeRequest)
+					if phase == "instance.allocate" || phase == "instance.deallocate" {
+						result.ResourceRequests = append(result.ResourceRequests, computeRequest)
+					}
 				case portPool:
 					portRequest := scheduler.PortBindingResourceRequest{}
 					err := mapstructure.Decode(request, &portRequest)
