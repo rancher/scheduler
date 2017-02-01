@@ -183,21 +183,17 @@ func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.Resourc
 
 func setPortBinding(bindings map[string]map[int64]string, ghostBindings map[string]map[int64]string, ip string,
 	port int64, container metadata.Container) {
-	uuid := container.UUID
-	if depUUID := container.Labels["io.rancher.service.deployment.unit"]; depUUID != "" {
-		uuid = depUUID
-	}
 	if _, ok := bindings[ip]; ok {
-		bindings[ip][port] = uuid
+		bindings[ip][port] = container.UUID
 	} else if ip == defaultIP {
 		for ip := range bindings {
-			bindings[ip][port] = uuid
+			bindings[ip][port] = container.UUID
 		}
 	} else {
 		if _, ok := ghostBindings[ip]; !ok {
 			ghostBindings[ip] = map[int64]string{}
 		}
-		ghostBindings[ip][port] = uuid
+		ghostBindings[ip][port] = container.UUID
 	}
 }
 
