@@ -81,32 +81,32 @@ func (s *MetadataTestSuite) TestWatchMetadataPortPool(c *check.C) {
 	go WatchMetadata(mock, sched)
 
 	// The mock metadata client's OnChange hasn't fired yet, so there should be no valid candidates
-	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	actual, err := sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
 
 	change <- "1"
 	<-changeDone
 	// port 8081 is already used by host-a, so return host-b
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-b"})
 
 	// port 8082 is used for udp by host-a, so return host-b
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8082, PrivatePort: 8082, Protocol: "udp"}}}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8082, PrivatePort: 8082, Protocol: "udp"}}}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-b"})
 
 	// port 8083 is not used, should return two host
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8083, PrivatePort: 8083, Protocol: "tcp"}}}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8083, PrivatePort: 8083, Protocol: "tcp"}}}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.HasLen, 2)
 
 	// release the port 8081
-	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
 
 	// when 8081 is released, scheduler should return two host available
-	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", InstanceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.HasLen, 2)
 }
@@ -198,5 +198,9 @@ func (c *mockMDPortClient) GetContainers() ([]metadata.Container, error) {
 	if c.errorContainers {
 		return nil, fmt.Errorf("Doesn't work")
 	}
-	return []metadata.Container{{State: "running", Ports: []string{"192.168.1.1:8081:8081/tcp", "192.168.1.2:8081:8081/tcp", "192.168.1.1:8082:8082/udp", "192.168.1.2:8082:8082/udp"}, HostUUID: "host-a"}, {State: "running", Ports: []string{"192.168.1.3:8081:8081/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"}}, nil
+	return []metadata.Container{
+		{UUID: "12345", State: "running", Ports: []string{"192.168.1.1:8081:8081/tcp", "192.168.1.2:8081:8081/tcp", "192.168.1.1:8082:8082/udp", "192.168.1.2:8082:8082/udp"}, HostUUID: "host-a"},
+		{UUID: "12346", State: "running", Ports: []string{"192.168.1.3:8081:8081/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"},
+		{UUID: "12347", State: "stopped", Ports: []string{"192.168.1.3:8083:8083/tcp", "192.168.1.4:8082:8082/tcp"}, HostUUID: "host-b"},
+	}, nil
 }

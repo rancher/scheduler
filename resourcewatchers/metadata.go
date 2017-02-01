@@ -143,43 +143,43 @@ func (w *metadataWatcher) checkError(err error) {
 
 func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.ResourcePool {
 	pool := &scheduler.PortResourcePool{
-		PortBindingMapTCP: map[string]map[int64]bool{},
-		GhostMapTCP:       map[string]map[int64]bool{},
-		PortBindingMapUDP: map[string]map[int64]bool{},
-		GhostMapUDP:       map[string]map[int64]bool{},
+		PortBindingMapTCP: map[string]map[int64]string{},
+		GhostMapTCP:       map[string]map[int64]string{},
+		PortBindingMapUDP: map[string]map[int64]string{},
+		GhostMapUDP:       map[string]map[int64]string{},
 	}
 	pool.Resource = portPool
 	label := h.Labels[ipLabel]
 	if label == "" {
 		// only one ip, set ip as 0.0.0.0
-		pool.PortBindingMapTCP[defaultIP] = map[int64]bool{}
-		pool.PortBindingMapUDP[defaultIP] = map[int64]bool{}
+		pool.PortBindingMapTCP[defaultIP] = map[int64]string{}
+		pool.PortBindingMapUDP[defaultIP] = map[int64]string{}
 		containers, err := w.client.GetContainers()
 		if err != nil {
 			w.checkError(err)
 		}
 		for _, container := range containers {
-			if container.HostUUID == h.UUID {
+			if container.HostUUID == h.UUID && container.State == "running" {
 				for _, portString := range container.Ports {
 					ip, port, prot, ok := parsePort(portString)
 					if ok {
 						if prot == "tcp" {
 							if _, ok := pool.PortBindingMapTCP[ip]; ok {
-								pool.PortBindingMapTCP[ip][port] = true
+								pool.PortBindingMapTCP[ip][port] = container.UUID
 							} else {
 								if _, ok := pool.GhostMapTCP[ip]; !ok {
-									pool.GhostMapTCP[ip] = map[int64]bool{}
+									pool.GhostMapTCP[ip] = map[int64]string{}
 								}
-								pool.GhostMapTCP[ip][port] = true
+								pool.GhostMapTCP[ip][port] = container.UUID
 							}
 						} else {
 							if _, ok := pool.PortBindingMapUDP[ip]; ok {
-								pool.PortBindingMapUDP[ip][port] = true
+								pool.PortBindingMapUDP[ip][port] = container.UUID
 							} else {
 								if _, ok := pool.GhostMapUDP[ip]; !ok {
-									pool.GhostMapUDP[ip] = map[int64]bool{}
+									pool.GhostMapUDP[ip] = map[int64]string{}
 								}
-								pool.GhostMapUDP[ip][port] = true
+								pool.GhostMapUDP[ip][port] = container.UUID
 							}
 						}
 					}
@@ -189,43 +189,43 @@ func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.Resourc
 	} else {
 		ips := strings.Split(label, ",")
 		for _, ip := range ips {
-			pool.PortBindingMapTCP[strings.TrimSpace(ip)] = map[int64]bool{}
-			pool.PortBindingMapUDP[strings.TrimSpace(ip)] = map[int64]bool{}
+			pool.PortBindingMapTCP[strings.TrimSpace(ip)] = map[int64]string{}
+			pool.PortBindingMapUDP[strings.TrimSpace(ip)] = map[int64]string{}
 		}
 		containers, err := w.client.GetContainers()
 		if err != nil {
 			w.checkError(err)
 		}
 		for _, container := range containers {
-			if container.HostUUID == h.UUID {
+			if container.HostUUID == h.UUID && container.State == "running" {
 				for _, portString := range container.Ports {
 					ip, port, prot, ok := parsePort(portString)
 					if ok {
 						if prot == "tcp" {
 							if _, ok := pool.PortBindingMapTCP[ip]; ok {
-								pool.PortBindingMapTCP[ip][port] = true
+								pool.PortBindingMapTCP[ip][port] = container.UUID
 							} else if ip == defaultIP {
 								for ip := range pool.PortBindingMapTCP {
-									pool.PortBindingMapTCP[ip][port] = true
+									pool.PortBindingMapTCP[ip][port] = container.UUID
 								}
 							} else {
 								if _, ok := pool.GhostMapTCP[ip]; !ok {
-									pool.GhostMapTCP[ip] = map[int64]bool{}
+									pool.GhostMapTCP[ip] = map[int64]string{}
 								}
-								pool.GhostMapTCP[ip][port] = true
+								pool.GhostMapTCP[ip][port] = container.UUID
 							}
 						} else {
 							if _, ok := pool.PortBindingMapUDP[ip]; ok {
-								pool.PortBindingMapUDP[ip][port] = true
+								pool.PortBindingMapUDP[ip][port] = container.UUID
 							} else if ip == defaultIP {
 								for ip := range pool.PortBindingMapUDP {
-									pool.PortBindingMapUDP[ip][port] = true
+									pool.PortBindingMapUDP[ip][port] = container.UUID
 								}
 							} else {
 								if _, ok := pool.GhostMapUDP[ip]; !ok {
-									pool.GhostMapUDP[ip] = map[int64]bool{}
+									pool.GhostMapUDP[ip] = map[int64]string{}
 								}
-								pool.GhostMapUDP[ip][port] = true
+								pool.GhostMapUDP[ip][port] = container.UUID
 							}
 						}
 

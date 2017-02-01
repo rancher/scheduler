@@ -48,7 +48,7 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 			for _, spec := range request.PortRequests {
 				if spec.IPAddress != "" {
 					// if user has specified the public ip address, there is nothing to do we can do in the scheduler
-					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol); err != nil {
+					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.InstanceUUID); err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
 					}
@@ -62,7 +62,7 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 				}
 				if spec.PublicPort != 0 {
 					// if user has specified public port, find an ip for it
-					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol)
+					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol, request.InstanceID)
 					if err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
@@ -79,14 +79,14 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 					// if user doesn't not specify the public port, scheduler will pick up an random port for them
 					// find the random port
 					// I don't believe the ports will get exhausted
-					portMap := map[int64]bool{}
+					portMap := map[int64]string{}
 					if spec.Protocol == "tcp" {
 						portMap = pool.PortBindingMapTCP[ip]
 					} else {
 						portMap = pool.PortBindingMapUDP[ip]
 					}
 					port := findRandomPort(portMap)
-					portMap[port] = true
+					portMap[port] = request.InstanceID
 					logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
@@ -114,7 +114,7 @@ func PortRelease(pool *PortResourcePool, request PortBindingResourceRequest) {
 	}
 }
 
-func findRandomPort(portMap map[int64]bool) int64 {
+func findRandomPort(portMap map[int64]string) int64 {
 	// find a random port not used within the range of 32768--61000
 	// algorithm is here http://stackoverflow.com/questions/6443176/how-can-i-generate-a-random-number-within-a-range-but-exclude-some though i can't prove it mathematically ^^
 	s1 := rand.NewSource(time.Now().UnixNano())
