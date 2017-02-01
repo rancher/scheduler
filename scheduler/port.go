@@ -109,7 +109,7 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 
 func PortRelease(pool *PortResourcePool, request PortBindingResourceRequest) {
 	for _, spec := range request.PortRequests {
-		pool.ReleasePort(spec.IPAddress, spec.PublicPort, spec.Protocol)
+		pool.ReleasePort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.ResourceUUID)
 	}
 }
 

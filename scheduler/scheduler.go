@@ -62,6 +62,19 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 	if _, ok := portMap[ip]; !ok {
 		// if ip can't be found and it is not 0.0.0.0,  reserve on the ghost map
 		if ip != defaultIP {
+			// before reserving on the ghost map, check 0.0.0.0 pool to make sure we cover this case:
+			// Host Label only has 0.0.0.0, and container A use 0.0.0.0:8080:8080, container B use 192.168.1.1:8080:8080, should fail.
+			if _, ok := p.PortBindingMapTCP[defaultIP]; ok {
+				if portMap[defaultIP][port] != "" {
+					return errors.Errorf("Can not reserve Port %v on IP %v, port is used by %v", port, ip, defaultIP)
+				}
+			}
+			//Host Label 192.168.1.1, 192.168.1.2, Container A use 0.0.0.0:8080:8080(ghost map), container B use 192.168.1.3:8080:8080, should fail.
+			if _, ok := p.GhostMapTCP[defaultIP]; ok {
+				if ghostMap[defaultIP][port] != "" {
+					return errors.Errorf("Can not reserve Port %v on IP %v, port is used by %v", port, ip, defaultIP)
+				}
+			}
 			if _, ok := ghostMap[ip]; !ok {
 				ghostMap[ip] = map[int64]string{}
 				logrus.Infof("Creating ghost map for IP %v on protocol %v", ip, protocol)
@@ -129,7 +142,7 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 	return errors.Errorf("Port %v is already used in ip %v on protocol %v", port, ip, protocol)
 }
 
-func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string) {
+func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string, uuid string) {
 	portMap := map[string]map[int64]string{}
 	ghostMap := map[string]map[int64]string{}
 	if protocol == "tcp" {
@@ -140,11 +153,30 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string) {
 		ghostMap = p.GhostMapUDP
 	}
 	if _, ok := portMap[ip]; ok {
-		delete(portMap[ip], port)
-		logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+		if portMap[ip][port] == uuid {
+			delete(portMap[ip], port)
+			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+		}
 	} else if _, ok := ghostMap[ip]; ok {
-		delete(ghostMap[ip], port)
-		logrus.Infof("Port %v is released on IP %v for ghost map on protocol %v", port, ip, protocol)
+		if ghostMap[ip][port] == uuid {
+			delete(ghostMap[ip], port)
+			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+		}
+	}
+	if ip == defaultIP {
+		// if ip is 0.0.0.0, also release all port on other pools
+		for nip := range portMap {
+			if portMap[nip][port] == uuid {
+				delete(portMap[nip], port)
+				logrus.Infof("Port %v is released on IP %v on protocol %v", port, nip, protocol)
+			}
+		}
+		for gip := range ghostMap {
+			if ghostMap[gip][port] == uuid {
+				delete(ghostMap[gip], port)
+				logrus.Infof("Port %v is released on IP %v on protocol %v", port, gip, protocol)
+			}
+		}
 	}
 }
 
@@ -314,7 +346,7 @@ L:
 						ip := portReserved[allocatedIP].(string)
 						port := portReserved[publicPort].(int64)
 						prot := portReserved[protocol].(string)
-						pool.ReleasePort(ip, port, prot)
+						pool.ReleasePort(ip, port, prot, "")
 						logrus.Infof("Roll back ip [%v] and port [%v]", ip, port)
 					}
 				}
