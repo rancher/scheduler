@@ -3,10 +3,11 @@ package events
 import (
 	"testing"
 
+	check "gopkg.in/check.v1"
+
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/go-rancher/client"
 	"github.com/rancher/scheduler/scheduler"
-	"gopkg.in/check.v1"
 )
 
 // gocheck setup
@@ -33,6 +34,7 @@ func (s *MetadataTestSuite) TestPrioritizeEvent(c *check.C) {
 	}
 
 	req := map[string]interface{}{
+		"phase": "instance.allocate",
 		"resourceRequests": []interface{}{
 			map[string]interface{}{
 				"type":     "computePool",
@@ -82,6 +84,120 @@ func (s *MetadataTestSuite) TestPrioritizeEvent(c *check.C) {
 	err = handler.Prioritize(event, mockClient)
 	c.Assert(err, check.IsNil)
 	c.Assert(mockPublishOps.published.Data, check.DeepEquals, map[string]interface{}{"prioritizedCandidates": []string{"1"}})
+}
+
+func (s *MetadataTestSuite) TestProcessPhase(c *check.C) {
+	sched := scheduler.NewScheduler(-1)
+
+	sched.CreateResourcePool("1", &scheduler.PortResourcePool{
+		Resource: "portReservation",
+		PortBindingMapTCP: map[string]map[int64]string{
+			"192.168.1.1": {},
+			"192.168.1.2": {},
+		},
+		GhostMapTCP: map[string]map[int64]string{
+			"192.168.1.3": {},
+			"192.168.1.4": {},
+		},
+		PortBindingMapUDP: map[string]map[int64]string{
+			"192.168.1.1": {},
+			"192.168.1.2": {},
+		},
+		GhostMapUDP: map[string]map[int64]string{
+			"192.168.1.3": {},
+			"192.168.1.4": {},
+		},
+	})
+	handler := &schedulingHandler{
+		scheduler: sched,
+	}
+
+	mockPublishOps := &mockPublish{}
+	mockClient := &client.RancherClient{
+		Publish: mockPublishOps,
+	}
+
+	req := map[string]interface{}{
+		"phase": "instance.allocate",
+		"resourceRequests": []interface{}{
+			map[string]interface{}{
+				"type":         "portPool",
+				"resource":     "portReservation",
+				"instanceID":   "1",
+				"resourceUUID": "12345",
+				"portRequests": []map[string]interface{}{
+					{
+						"ipAddress":   "192.168.1.1",
+						"privatePort": 8080,
+						"publicPort":  8080,
+						"protocol":    "tcp",
+					},
+				},
+			},
+		},
+		"hostID": "1",
+	}
+
+	req2 := map[string]interface{}{
+		"phase": "instance.allocate",
+		"resourceRequests": []interface{}{
+			map[string]interface{}{
+				"type":         "portPool",
+				"resource":     "portReservation",
+				"instanceID":   "2",
+				"resourceUUID": "12346",
+				"portRequests": []map[string]interface{}{
+					{
+						"ipAddress":   "192.168.1.1",
+						"privatePort": 8080,
+						"publicPort":  8080,
+						"protocol":    "tcp",
+					},
+				},
+			},
+		},
+		"hostID": "1",
+	}
+
+	event := &revents.Event{
+		Data: map[string]interface{}{
+			"schedulerRequest": req,
+		},
+	}
+
+	event2 := &revents.Event{
+		Data: map[string]interface{}{
+			"schedulerRequest": req2,
+		},
+	}
+
+	// reserve first time, it should reserve as normal
+	err := handler.Reserve(event, mockClient)
+	c.Assert(err, check.IsNil)
+
+	req["phase"] = "instance.start"
+	//set phase to instance.start, then should trigger the logic and pass
+	err = handler.Reserve(event, mockClient)
+	c.Assert(err, check.IsNil)
+
+	req["phase"] = "instance.start"
+	//set phase to instance.start, then should also pass since it is the same instance
+	err = handler.Reserve(event, mockClient)
+	c.Assert(err, check.IsNil)
+
+	// release port by instance.stop
+	req["phase"] = "instance.stop"
+	err = handler.Release(event, mockClient)
+	c.Assert(err, check.IsNil)
+
+	// test if port is release by sending another event
+	err = handler.Reserve(event2, mockClient)
+	c.Assert(err, check.IsNil)
+
+	// restart the first one, should not pass because it is used by another instance
+	req["phase"] = "instance.start"
+	err = handler.Reserve(event, mockClient)
+	c.Assert(err, check.NotNil)
 }
 
 type mockPublish struct {

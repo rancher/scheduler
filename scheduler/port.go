@@ -44,11 +44,11 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 	found := false
 	// since all the port requests should only land on one ip, loop through all the ip and find the available one
 	for ip := range pool.PortBindingMapTCP {
-		if pool.IsIPQualifiedForRequests(ip, request.PortRequests) {
+		if pool.IsIPQualifiedForRequests(ip, request.ResourceUUID, request.PortRequests) {
 			for _, spec := range request.PortRequests {
 				if spec.IPAddress != "" {
-					// if user has specified the public ip address, there is nothing to do we can do in the scheduler
-					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol); err != nil {
+					// if user has specified the public ip address, there is nothing we can do in the scheduler
+					if err := pool.ReserveIPPort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.ResourceUUID); err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
 					}
@@ -62,12 +62,11 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 				}
 				if spec.PublicPort != 0 {
 					// if user has specified public port, find an ip for it
-					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol)
+					err := pool.ReserveIPPort(ip, spec.PublicPort, spec.Protocol, request.ResourceUUID)
 					if err != nil {
 						data[allocatedIPs] = portReservation
 						return data, err
 					}
-					logrus.Infof("Public port %v reserved for ip address %v on protocol %v", spec.PublicPort, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
 					result[publicPort] = spec.PublicPort
@@ -79,14 +78,14 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 					// if user doesn't not specify the public port, scheduler will pick up an random port for them
 					// find the random port
 					// I don't believe the ports will get exhausted
-					portMap := map[int64]bool{}
+					var portMap map[int64]string
 					if spec.Protocol == "tcp" {
 						portMap = pool.PortBindingMapTCP[ip]
 					} else {
 						portMap = pool.PortBindingMapUDP[ip]
 					}
 					port := findRandomPort(portMap)
-					portMap[port] = true
+					portMap[port] = request.ResourceUUID
 					logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
@@ -110,11 +109,11 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 
 func PortRelease(pool *PortResourcePool, request PortBindingResourceRequest) {
 	for _, spec := range request.PortRequests {
-		pool.ReleasePort(spec.IPAddress, spec.PublicPort, spec.Protocol)
+		pool.ReleasePort(spec.IPAddress, spec.PublicPort, spec.Protocol, request.ResourceUUID)
 	}
 }
 
-func findRandomPort(portMap map[int64]bool) int64 {
+func findRandomPort(portMap map[int64]string) int64 {
 	// find a random port not used within the range of 32768--61000
 	// algorithm is here http://stackoverflow.com/questions/6443176/how-can-i-generate-a-random-number-within-a-range-but-exclude-some though i can't prove it mathematically ^^
 	s1 := rand.NewSource(time.Now().UnixNano())
