@@ -2,7 +2,7 @@ package scheduler
 
 type ResourceUpdater interface {
 	CreateResourcePool(hostUUID string, pool ResourcePool) error
-	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
+	UpdateResourcePool(hostUUID string, pool ResourcePool, updatePool bool) bool
 	RemoveHost(hostUUID string)
 }
 

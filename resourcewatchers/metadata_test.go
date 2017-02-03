@@ -111,6 +111,40 @@ func (s *MetadataTestSuite) TestWatchMetadataPortPool(c *check.C) {
 	c.Assert(actual, check.HasLen, 2)
 }
 
+func (s *MetadataTestSuite) TestIPLabelChange(c *check.C) {
+	sched := scheduler.NewScheduler(-1)
+
+	change := make(chan string)
+	changeDone := make(chan int)
+
+	h1 := []metadata.Host{{UUID: "host-a", Memory: 1}}
+
+	h2 := []metadata.Host{{UUID: "host-a", Memory: 1, Labels: map[string]string{"io.rancher.scheduler.ips": "192.168.1.1,192.168.1.2"}}}
+
+	mock := &mockMDClient{
+		change:     change,
+		changeDone: changeDone,
+		hosts:      h1,
+	}
+
+	go WatchMetadata(mock, sched)
+	// this should populate 0.0.0.0 for both host
+	change <- "1"
+	<-changeDone
+
+	mock.hosts = h2
+	// this should populate ips labels to h2
+	change <- "2"
+	<-changeDone
+
+	r1 := []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}
+	r2 := []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "2", ResourceUUID: "12346", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}
+	_, err := sched.ReserveResources("host-a", false, r1)
+	c.Assert(err, check.IsNil)
+	_, err = sched.ReserveResources("host-a", false, r2)
+	c.Assert(err, check.IsNil)
+}
+
 func (s *MetadataTestSuite) TestPanicLogic(c *check.C) {
 	sched := scheduler.NewScheduler(-1)
 
