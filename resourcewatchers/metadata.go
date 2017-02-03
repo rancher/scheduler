@@ -19,6 +19,7 @@ func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) er
 		resourceUpdater: updater,
 		client:          client,
 		knownHosts:      map[string]bool{},
+		previousIPs:     map[string]string{},
 	}
 	return client.OnChangeWithError(5, watcher.updateFromMetadata)
 }
@@ -30,6 +31,7 @@ type metadataWatcher struct {
 	initialized           bool
 	knownHosts            map[string]bool
 	mu                    sync.Mutex
+	previousIPs           map[string]string
 }
 
 const (
@@ -77,7 +79,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, &scheduler.ComputeResourcePool{
 				Resource: resourceKey,
 				Total:    total,
-			})
+			}, false)
 			if poolDoesntExist {
 				if usedResourcesByHost == nil {
 					usedResourcesByHost, err = w.getUsedResourcesByHost()
@@ -97,10 +99,13 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		portPool := w.getPortPoolFromHost(h)
 		// Note: UpdateResourcePool for ports is effectively a no-op. It just checks if the pool has been created.
 		// This means that we cannot currently back-populate "native" containers into the scheduler.
-		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
+		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool, false)
 		if poolDoesntExist {
 			w.resourceUpdater.CreateResourcePool(h.UUID, portPool)
+		} else if w.previousIPs[h.UUID] != h.Labels[ipLabel] {
+			w.resourceUpdater.UpdateResourcePool(h.UUID, portPool, true)
 		}
+		w.previousIPs[h.UUID] = h.Labels[ipLabel]
 	}
 
 	for uuid := range w.knownHosts {

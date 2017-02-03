@@ -304,7 +304,7 @@ func PortRelease(pool *PortResourcePool, request PortBindingResourceRequest) {
 
 func findRandomPort(portMap map[int64]string) int64 {
 	// find a random port not used within the range of 32768--61000
-	// algorithm is here http://stackoverflow.com/questions/6443176/how-can-i-generate-a-random-number-within-a-range-but-exclude-some though i can't prove it mathematically ^^
+	// algorithm is here http://stackoverflow.com/questions/6443176/how-can-i-generate-a-random-number-within-a-range-but-exclude-some though i can't prove it mathematically  ^^
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
 	random := int64(base + r1.Intn(end-base+1-len(portMap)))

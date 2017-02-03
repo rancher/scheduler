@@ -216,7 +216,7 @@ func (s *Scheduler) CreateResourcePool(hostUUID string, pool ResourcePool) error
 	switch pool.GetPoolType() {
 	case computePool:
 		p := pool.(*ComputeResourcePool)
-		logrus.Infof("Adding resource pool [%v] with total %v and used %v for host %v", p.Resource, p.Total, p.Used, hostUUID)
+		logrus.Infof("Adding resource pool [%v] with total %v and used %v for host  %v", p.Resource, p.Total, p.Used, hostUUID)
 		h.pools[p.Resource] = &ComputeResourcePool{Total: p.Total, Used: p.Used, Resource: p.Resource}
 	case portPool:
 		p := pool.(*PortResourcePool)
@@ -232,7 +232,7 @@ func (s *Scheduler) CreateResourcePool(hostUUID string, pool ResourcePool) error
 	return nil
 }
 
-func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool) bool {
+func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool, updatePool bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -253,6 +253,17 @@ func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool) bool 
 		if e.Total != p.Total {
 			logrus.Infof("Updating resource pool [%v] to %v for host %v", p.GetPoolResourceType(), p.Total, hostUUID)
 			e.Total = p.Total
+		}
+	case portPool:
+		if updatePool {
+			p := pool.(*PortResourcePool)
+			ipset := []string{}
+			for ip := range p.PortBindingMapTCP {
+				ipset = append(ipset, ip)
+			}
+			logrus.Infof("Adding resource pool [%v], ip set %v, ports map tcp %v, ports map udp %v for host %v", p.Resource,
+				ipset, p.PortBindingMapTCP, p.PortBindingMapUDP, hostUUID)
+			h.pools[p.Resource] = p
 		}
 	}
 
