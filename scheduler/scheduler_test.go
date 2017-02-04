@@ -581,6 +581,72 @@ func (s *SchedulerTestSuite) TestPortCornerCase(c *check.C) {
 	c.Assert(getPortSlots(scheduler.hosts["2"].pools["portReservation"].(*PortResourcePool), 8080, "tcp"), check.Equals, 2)
 }
 
+func (s *SchedulerTestSuite) TestMixPortRequests(c *check.C) {
+	scheduler := &Scheduler{
+		hosts: map[string]*host{},
+	}
+	err := scheduler.CreateResourcePool("1", &PortResourcePool{
+		Resource: "portReservation",
+		PortBindingMapTCP: map[string]map[int64]string{
+			"0.0.0.0": {},
+		},
+		GhostMapTCP:       map[string]map[int64]string{},
+		PortBindingMapUDP: map[string]map[int64]string{},
+		GhostMapUDP:       map[string]map[int64]string{},
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
+	err = scheduler.CreateResourcePool("2", &PortResourcePool{
+		Resource: "portReservation",
+		PortBindingMapTCP: map[string]map[int64]string{
+			"192.168.1.1": {8080: "12345"},
+			"192.168.1.2": {},
+			"192.168.1.3": {},
+			"192.168.1.4": {},
+			"192.168.1.5": {},
+		},
+		GhostMapTCP: map[string]map[int64]string{
+			"0.0.0.0": {},
+		},
+		PortBindingMapUDP: map[string]map[int64]string{},
+		GhostMapUDP:       map[string]map[int64]string{},
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
+
+	specs := []PortSpec{{IPAddress: "192.168.1.2", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
+	r1 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	hosts, err := scheduler.PrioritizeCandidates(r1)
+	c.Assert(err, check.IsNil)
+	c.Assert(hosts, check.DeepEquals, []string{"2"})
+
+	specs = []PortSpec{{IPAddress: "192.168.1.3", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
+	r2 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	hosts, err = scheduler.PrioritizeCandidates(r2)
+	c.Assert(err, check.IsNil)
+	c.Assert(hosts, check.DeepEquals, []string{"2"})
+
+	specs = []PortSpec{{IPAddress: "192.168.1.4", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
+	r3 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	hosts, err = scheduler.PrioritizeCandidates(r3)
+	c.Assert(err, check.IsNil)
+	c.Assert(hosts, check.DeepEquals, []string{"2"})
+
+	specs = []PortSpec{{IPAddress: "192.168.1.5", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
+	r4 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	hosts, err = scheduler.PrioritizeCandidates(r4)
+	c.Assert(err, check.IsNil)
+	c.Assert(hosts, check.DeepEquals, []string{"2"})
+
+	specs = []PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
+	r5 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
+	hosts, err = scheduler.PrioritizeCandidates(r5)
+	c.Assert(err, check.IsNil)
+	c.Assert(hosts, check.DeepEquals, []string{})
+}
+
 func getPortSlots(pool *PortResourcePool, port int64, protocol string) int {
 	if protocol == "tcp" {
 		slots := 0

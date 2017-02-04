@@ -181,10 +181,22 @@ L:
 		}
 		for _, port := range ports {
 			if port.Protocol == "tcp" {
+				if port.IPAddress != "" {
+					if ip != port.IPAddress || portMapTCP[port.PublicPort] != "" {
+						continue L
+					}
+					continue
+				}
 				if portMapTCP[port.PublicPort] != "" {
 					continue L
 				}
 			} else {
+				if port.IPAddress != "" {
+					if ip != port.IPAddress || portMapUDP[port.PublicPort] != "" {
+						continue L
+					}
+					continue
+				}
 				if portMapUDP[port.PublicPort] != "" {
 					continue L
 				}
