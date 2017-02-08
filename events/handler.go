@@ -54,7 +54,7 @@ func (h *schedulingHandler) Prioritize(event *revents.Event, client *client.Ranc
 		return errors.Wrapf(err, "Error decoding prioritize event %v.", event)
 	}
 
-	candidates, err := h.scheduler.PrioritizeCandidates(data.ResourceRequests)
+	candidates, err := h.scheduler.PrioritizeCandidates(data.ResourceRequests, data.Context)
 	if err != nil {
 		return errors.Wrapf(err, "Error prioritizing candidates. Event %v", event)
 	}
@@ -124,6 +124,14 @@ func decodeEvent(event *revents.Event, key string) (*schedulerData, error) {
 		if force, ok := s.(map[string]interface{})["force"]; ok {
 			result.Force = force.(bool)
 		}
+		if cont, ok := s.(map[string]interface{})["context"]; ok {
+			context := scheduler.Context{}
+			err := mapstructure.Decode(cont, &context)
+			if err != nil {
+				return nil, err
+			}
+			result.Context = context
+		}
 		return result, nil
 	}
 	return nil, fmt.Errorf("Event doesn't contain %v data. Event: %#v", key, event)
@@ -133,4 +141,5 @@ type schedulerData struct {
 	HostID           string `mapstructure:"hostId"`
 	Force            bool
 	ResourceRequests []scheduler.ResourceRequest
+	Context          scheduler.Context
 }

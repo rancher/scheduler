@@ -472,7 +472,7 @@ func (s *SchedulerTestSuite) TestReservePortsWithGhostIPEntry(c *check.C) {
 	}
 	specs := []PortSpec{{PublicPort: 80, PrivatePort: 80, Protocol: "tcp"}}
 	rrequests := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	result, err := scheduler.PrioritizeCandidates(rrequests)
+	result, err := scheduler.PrioritizeCandidates(rrequests, Context{})
 	c.Assert(result, check.HasLen, 0)
 
 	_, err = scheduler.ReserveResources("1", false, rrequests)
@@ -603,7 +603,7 @@ func getPortSlots(pool *PortResourcePool, port int64, protocol string) int {
 
 func checkOnlyPrioritization(scheduler *Scheduler, tests []rezTest, c *check.C) {
 	for _, t := range tests {
-		_, err := scheduler.PrioritizeCandidates(t.resourceRequests)
+		_, err := scheduler.PrioritizeCandidates(t.resourceRequests, Context{})
 		if err != nil {
 			c.Fatal(err)
 		}
@@ -616,7 +616,7 @@ func checkOnlyPrioritization(scheduler *Scheduler, tests []rezTest, c *check.C) 
 
 func checkPrioritizationAndReserve(scheduler *Scheduler, tests []rezTest, c *check.C) {
 	for _, t := range tests {
-		actual, err := scheduler.PrioritizeCandidates(t.resourceRequests)
+		actual, err := scheduler.PrioritizeCandidates(t.resourceRequests, Context{})
 		if err != nil {
 			c.Fatal(err)
 		}
