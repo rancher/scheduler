@@ -281,14 +281,16 @@ func (s *Scheduler) RemoveHost(hostUUID string) {
 func (s *Scheduler) PortFilter(requests []ResourceRequest, hosts []string) []string {
 	filteredHosts := []string{}
 	for _, host := range hosts {
+		portPool, ok := s.hosts[host].pools["portReservation"].(*PortResourcePool)
+		if !ok {
+			logrus.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", hosts)
+		}
 		qualified := true
-		if portPool, ok := s.hosts[host].pools["portReservation"].(*PortResourcePool); ok {
-			for _, request := range requests {
-				if rr, ok := request.(PortBindingResourceRequest); ok {
-					if !portPool.ArePortsAvailable(rr.PortRequests) {
-						qualified = false
-						break
-					}
+		for _, request := range requests {
+			if rr, ok := request.(PortBindingResourceRequest); ok {
+				if !portPool.ArePortsAvailable(rr.PortRequests) {
+					qualified = false
+					break
 				}
 			}
 		}
