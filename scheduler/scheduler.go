@@ -14,6 +14,7 @@ import (
 const (
 	computePool = "computePool"
 	portPool    = "portPool"
+	labelPool   = "labelPool"
 	defaultIP   = "0.0.0.0"
 )
 
@@ -35,7 +36,7 @@ type Scheduler struct {
 	sleepTime int
 }
 
-func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest) ([]string, error) {
+func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, context Context) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -52,6 +53,7 @@ func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest) ([]
 	sort.Sort(hs)
 	sortedIDs := ids(hs.hosts)
 	filteredHosts := s.PortFilter(resourceRequests, sortedIDs)
+	filteredHosts = s.LabelFilter(filteredHosts, context)
 	s.reserveTempPool(sortedIDs[0], resourceRequests)
 	return filteredHosts, nil
 }
@@ -227,6 +229,10 @@ func (s *Scheduler) CreateResourcePool(hostUUID string, pool ResourcePool) error
 		logrus.Infof("Adding resource pool [%v], ip set %v, ports map tcp %v, ports map udp %v for host %v", p.Resource,
 			ipset, p.PortBindingMapTCP, p.PortBindingMapUDP, hostUUID)
 		h.pools[p.Resource] = p
+	case labelPool:
+		p := pool.(*LabelPool)
+		logrus.Infof("Adding resource pool [%v] with label map [%v]", p.Resource, p.Labels)
+		h.pools[p.Resource] = p
 	}
 
 	return nil
@@ -265,6 +271,9 @@ func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool, updat
 				ipset, p.PortBindingMapTCP, p.PortBindingMapUDP, hostUUID)
 			h.pools[p.Resource] = p
 		}
+	case labelPool:
+		p := pool.(*LabelPool)
+		h.pools[p.Resource] = p
 	}
 
 	return true

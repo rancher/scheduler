@@ -41,6 +41,7 @@ const (
 	storageSize             string = "storageSize"
 	totalAvailableInstances int64  = 1000000
 	portPool                string = "portReservation"
+	hostLabels              string = "hostLabels"
 	ipLabel                 string = "io.rancher.scheduler.ips"
 	defaultIP               string = "0.0.0.0"
 )
@@ -106,6 +107,17 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			w.resourceUpdater.UpdateResourcePool(h.UUID, portPool, true)
 		}
 		w.previousIPs[h.UUID] = h.Labels[ipLabel]
+
+		// updating label pool
+		labelPool := &scheduler.LabelPool{
+			Resource: hostLabels,
+			Labels:   h.Labels,
+		}
+		poolDoesntExist = !w.resourceUpdater.UpdateResourcePool(h.UUID, labelPool, false)
+		if poolDoesntExist {
+			w.resourceUpdater.CreateResourcePool(h.UUID, labelPool)
+		}
+
 	}
 
 	for uuid := range w.knownHosts {
