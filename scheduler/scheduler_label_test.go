@@ -53,6 +53,10 @@ func (s *SchedulerTestSuite) TestLabelFilter(c *check.C) {
 	}
 	context5 := Context{con5}
 
+	context6 := Context{con1, con2}
+
+	context7 := Context{con1, con3}
+
 	actual, err := scheduler.PrioritizeCandidates(nil, context1)
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"1"})
@@ -70,6 +74,14 @@ func (s *SchedulerTestSuite) TestLabelFilter(c *check.C) {
 	c.Assert(actual, check.DeepEquals, []string{"2"})
 
 	actual, err = scheduler.PrioritizeCandidates(nil, context5)
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{})
+
+	actual, err = scheduler.PrioritizeCandidates(nil, context6)
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{"1"})
+
+	actual, err = scheduler.PrioritizeCandidates(nil, context7)
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
 }

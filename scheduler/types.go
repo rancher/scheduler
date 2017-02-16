@@ -1,9 +1,5 @@
 package scheduler
 
-const (
-	labelPool = "labelPool"
-)
-
 type ResourceUpdater interface {
 	CreateResourcePool(hostUUID string, pool ResourcePool) error
 	UpdateResourcePool(hostUUID string, pool ResourcePool, updatePool bool) bool

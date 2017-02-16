@@ -14,6 +14,7 @@ import (
 const (
 	computePool = "computePool"
 	portPool    = "portPool"
+	labelPool   = "labelPool"
 	defaultIP   = "0.0.0.0"
 )
 
@@ -54,7 +55,6 @@ func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, con
 	filteredHosts := s.PortFilter(resourceRequests, sortedIDs)
 	filteredHosts = s.LabelFilter(filteredHosts, context)
 	s.reserveTempPool(sortedIDs[0], resourceRequests)
-	logrus.Infof("return hosts %v", filteredHosts)
 	return filteredHosts, nil
 }
 
