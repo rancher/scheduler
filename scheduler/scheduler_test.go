@@ -618,31 +618,31 @@ func (s *SchedulerTestSuite) TestMixPortRequests(c *check.C) {
 
 	specs := []PortSpec{{IPAddress: "192.168.1.2", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
 	r1 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	hosts, err := scheduler.PrioritizeCandidates(r1)
+	hosts, err := scheduler.PrioritizeCandidates(r1, Context{})
 	c.Assert(err, check.IsNil)
 	c.Assert(hosts, check.DeepEquals, []string{"2"})
 
 	specs = []PortSpec{{IPAddress: "192.168.1.3", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
 	r2 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	hosts, err = scheduler.PrioritizeCandidates(r2)
+	hosts, err = scheduler.PrioritizeCandidates(r2, Context{})
 	c.Assert(err, check.IsNil)
 	c.Assert(hosts, check.DeepEquals, []string{"2"})
 
 	specs = []PortSpec{{IPAddress: "192.168.1.4", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
 	r3 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	hosts, err = scheduler.PrioritizeCandidates(r3)
+	hosts, err = scheduler.PrioritizeCandidates(r3, Context{})
 	c.Assert(err, check.IsNil)
 	c.Assert(hosts, check.DeepEquals, []string{"2"})
 
 	specs = []PortSpec{{IPAddress: "192.168.1.5", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
 	r4 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	hosts, err = scheduler.PrioritizeCandidates(r4)
+	hosts, err = scheduler.PrioritizeCandidates(r4, Context{})
 	c.Assert(err, check.IsNil)
 	c.Assert(hosts, check.DeepEquals, []string{"2"})
 
 	specs = []PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8080, PrivatePort: 8080, Protocol: "tcp"}, {PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}
 	r5 := []ResourceRequest{PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12", Resource: "portReservation", PortRequests: specs}}
-	hosts, err = scheduler.PrioritizeCandidates(r5)
+	hosts, err = scheduler.PrioritizeCandidates(r5, Context{})
 	c.Assert(err, check.IsNil)
 	c.Assert(hosts, check.DeepEquals, []string{})
 }
