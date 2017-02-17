@@ -23,6 +23,15 @@ func (s *SchedulerTestSuite) TestLabelFilter(c *check.C) {
 	if err != nil {
 		c.Fatal(err)
 	}
+	err = scheduler.CreateResourcePool("3", &LabelPool{
+		Resource: "hostLabels",
+		Labels: map[string]string{
+			requireAnyLabel: "FOO6=BAR6",
+		},
+	})
+	if err != nil {
+		c.Fatal(err)
+	}
 	con1 := contextStruct{}
 	con1.Data.Fields.Labels = map[string]string{
 		"foo": "bar",
@@ -78,6 +87,18 @@ func (s *SchedulerTestSuite) TestLabelFilter(c *check.C) {
 		"foo4": "",
 	}
 	context12 := Context{con12}
+
+	con13 := contextStruct{}
+	con13.Data.Fields.Labels = map[string]string{
+		"foo6": "bar6",
+	}
+	context13 := Context{con13}
+
+	con14 := contextStruct{}
+	con14.Data.Fields.Labels = map[string]string{
+		"FOO": "BAR",
+	}
+	context14 := Context{con14}
 
 	//test foo=bar
 	actual, err := scheduler.PrioritizeCandidates(nil, context1)
@@ -138,4 +159,14 @@ func (s *SchedulerTestSuite) TestLabelFilter(c *check.C) {
 	actual, err = scheduler.PrioritizeCandidates(nil, context12)
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{})
+
+	//test foo6=bar6 for case-insensitive
+	actual, err = scheduler.PrioritizeCandidates(nil, context13)
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{"3"})
+
+	//test FOO=BAR for case-insensitive
+	actual, err = scheduler.PrioritizeCandidates(nil, context14)
+	c.Assert(err, check.IsNil)
+	c.Assert(actual, check.DeepEquals, []string{"1"})
 }

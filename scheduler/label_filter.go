@@ -47,6 +47,7 @@ func (c RequireAnyLabelContraints) Match(host string, s *Scheduler, context Cont
 }
 
 func parseLabel(value string) map[string]string {
+	value = strings.ToLower(value)
 	parts := strings.Split(value, ",")
 	result := map[string]string{}
 	for _, part := range parts {
@@ -62,11 +63,15 @@ func parseLabel(value string) map[string]string {
 }
 
 func getLabelFromContext(context Context) []map[string]string {
-	r := []map[string]string{}
+	result := []map[string]string{}
 	for _, con := range context {
-		r = append(r, con.Data.Fields.Labels)
+		lowerMap := map[string]string{}
+		for key, value := range con.Data.Fields.Labels {
+			lowerMap[strings.ToLower(key)] = strings.ToLower(value)
+		}
+		result = append(result, lowerMap)
 	}
-	return r
+	return result
 }
 
 func (s *Scheduler) LabelFilter(hosts []string, context Context) []string {
