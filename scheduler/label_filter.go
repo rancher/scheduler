@@ -30,20 +30,20 @@ func (c RequireAnyLabelContraints) Match(host string, s *Scheduler, context Cont
 	}
 	labelSet := parseLabel(val)
 	containerLabels := getLabelFromContext(context)
-	qualifiedContext := make([]bool, len(containerLabels))
 	for key, value := range labelSet {
-		for i, ls := range containerLabels {
-			if ls[key] == value {
-				qualifiedContext[i] = true
+		for _, ls := range containerLabels {
+			if value == "" {
+				if _, ok := ls[key]; ok {
+					return true
+				}
+			} else {
+				if ls[key] == value {
+					return true
+				}
 			}
 		}
 	}
-	for _, q := range qualifiedContext {
-		if !q {
-			return false
-		}
-	}
-	return true
+	return false
 }
 
 func parseLabel(value string) map[string]string {
@@ -54,6 +54,8 @@ func parseLabel(value string) map[string]string {
 		p := strings.Split(part, "=")
 		if len(p) == 2 {
 			result[p[0]] = p[1]
+		} else if len(p) == 1 {
+			result[p[0]] = ""
 		}
 	}
 	return result
