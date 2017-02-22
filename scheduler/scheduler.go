@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	hostLabels  = "hostLabels"
-	computePool = "computePool"
-	portPool    = "portPool"
-	labelPool   = "labelPool"
-	defaultIP   = "0.0.0.0"
+	hostLabels          = "hostLabels"
+	computePool         = "computePool"
+	portPool            = "portPool"
+	instanceReservation = "instanceReservation"
+	labelPool           = "labelPool"
+	defaultIP           = "0.0.0.0"
 )
 
 type host struct {
@@ -345,13 +346,15 @@ func (s *Scheduler) reserveTempPool(hostID string, requests []ResourceRequest) {
 		for _, rr := range requests {
 			if computeReq, ok := rr.(AmountBasedResourceRequest); ok {
 				pool := s.hosts[hostID].pools[computeReq.Resource].(*ComputeResourcePool)
-				pool.Used += computeReq.Amount
-				go func(amount int64, t int) {
-					time.Sleep(time.Second * time.Duration(t))
-					s.mu.Lock()
-					pool.Used -= amount
-					s.mu.Unlock()
-				}(computeReq.Amount, s.sleepTime)
+				if pool.Resource == instanceReservation {
+					pool.Used += computeReq.Amount
+					go func(amount int64, t int) {
+						time.Sleep(time.Second * time.Duration(t))
+						s.mu.Lock()
+						pool.Used -= amount
+						s.mu.Unlock()
+					}(computeReq.Amount, s.sleepTime)
+				}
 			}
 		}
 	}
