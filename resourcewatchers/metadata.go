@@ -9,10 +9,11 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/go-rancher/v2"
 	"github.com/rancher/scheduler/scheduler"
 )
 
-func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) error {
+func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater, rclient *client.RancherClient) error {
 	logrus.Infof("Subscribing to metadata changes.")
 
 	watcher := &metadataWatcher{
@@ -20,6 +21,7 @@ func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater) er
 		client:          client,
 		knownHosts:      map[string]bool{},
 		previousIPs:     map[string]string{},
+		rclient:         rclient,
 	}
 	return client.OnChangeWithError(5, watcher.updateFromMetadata)
 }
@@ -32,6 +34,7 @@ type metadataWatcher struct {
 	knownHosts            map[string]bool
 	mu                    sync.Mutex
 	previousIPs           map[string]string
+	rclient               *client.RancherClient
 }
 
 const (
@@ -44,6 +47,7 @@ const (
 	hostLabels              string = "hostLabels"
 	ipLabel                 string = "io.rancher.scheduler.ips"
 	defaultIP               string = "0.0.0.0"
+	schedulerUpdate         string = "scheduler.update"
 )
 
 func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
@@ -63,6 +67,14 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		}
 	}
 	newKnownHosts := map[string]bool{}
+
+	dif := w.resourceUpdater.CompareHostLabels(hosts)
+	if dif {
+		err = sendExternalEvent(w.rclient)
+		if err != nil {
+			logrus.Warnf("Error in sending external host event. err: %+v", err)
+		}
+	}
 
 	for _, h := range hosts {
 		newKnownHosts[h.UUID] = true
@@ -232,6 +244,19 @@ func parsePort(port string) (string, int64, string, bool) {
 		return "", 0, "", false
 	}
 	return "", 0, "", false
+}
+
+func sendExternalEvent(rclient *client.RancherClient) error {
+	if rclient == nil {
+		return nil
+	}
+	externalHostEvent := &client.ExternalHostEvent{
+		EventType: schedulerUpdate,
+	}
+	if _, err := rclient.ExternalHostEvent.Create(externalHostEvent); err != nil {
+		return err
+	}
+	return nil
 }
 
 type poolInitializer struct {

@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	t "time"
 
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/go-rancher/v2"
 	"github.com/rancher/scheduler/events"
 	"github.com/rancher/scheduler/resourcewatchers"
 	"github.com/rancher/scheduler/scheduler"
@@ -65,6 +67,15 @@ func run(c *cli.Context) error {
 	if url == "" || ak == "" || sk == "" {
 		logrus.Fatalf("Cattle connection environment variables not available. URL: %v, access key %v, secret key redacted.", url, ak)
 	}
+	apiClient, err := client.NewRancherClient(&client.ClientOpts{
+		Timeout:   t.Second * 30,
+		Url:       url,
+		AccessKey: ak,
+		SecretKey: sk,
+	})
+	if err != nil {
+		return err
+	}
 
 	exit := make(chan error)
 	go func(exit chan<- error) {
@@ -73,7 +84,7 @@ func run(c *cli.Context) error {
 	}(exit)
 
 	go func(exit chan<- error) {
-		err := resourcewatchers.WatchMetadata(mdClient, scheduler)
+		err := resourcewatchers.WatchMetadata(mdClient, scheduler, apiClient)
 		exit <- errors.Wrap(err, "Metadata watcher exited")
 	}(exit)
 
@@ -82,7 +93,7 @@ func run(c *cli.Context) error {
 		exit <- errors.Wrapf(err, "Healthcheck provider died.")
 	}(exit)
 
-	err := <-exit
+	err = <-exit
 	logrus.Errorf("Exiting scheduler with error: %v", err)
 	return err
 }

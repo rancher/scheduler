@@ -13,7 +13,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/websocket"
-	"github.com/rancher/go-rancher/client"
+	"github.com/rancher/go-rancher/v2"
 )
 
 const MaxWait = time.Duration(time.Second * 10)
@@ -54,7 +54,7 @@ func NewEventRouter(name string, priority int, apiURL string, accessKey string, 
 	}
 
 	// TODO Get subscribe collection URL from API instead of hard coding
-	subscribeURL := strings.Replace(apiURL+"/subscribe", "http", "ws", -1)
+	subscribeURL := strings.Replace(apiURL+"/subscribe", "http", "ws", 1)
 
 	return &EventRouter{
 		name:          name,
@@ -187,7 +187,12 @@ func (router *EventRouter) subscribeToEvents(subscribeURL string, accessKey stri
 				log.Errorf("Error response: %s", body)
 			}
 		}
+		ws.Close()
 		return nil, err
 	}
 	return ws, nil
+}
+
+func (router *EventRouter) GetWebSocketConn() *websocket.Conn {
+	return router.eventStream
 }
