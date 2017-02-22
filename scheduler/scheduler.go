@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/rancher/go-rancher-metadata/metadata"
+	"reflect"
 )
 
 const (
+	hostLabels  = "hostLabels"
 	computePool = "computePool"
 	portPool    = "portPool"
 	labelPool   = "labelPool"
@@ -285,6 +288,24 @@ func (s *Scheduler) RemoveHost(hostUUID string) {
 
 	logrus.Infof("Removing host %v.", hostUUID)
 	delete(s.hosts, hostUUID)
+}
+
+func (s *Scheduler) CompareHostLabels(hosts []metadata.Host) bool {
+	if len(s.hosts) != len(hosts) {
+		return true
+	}
+	for _, host := range hosts {
+		originalHost, ok := s.hosts[host.UUID]
+		if !ok {
+			return true
+		}
+		prevMap := originalHost.pools[hostLabels].(*LabelPool)
+		currMap := host.Labels
+		if !reflect.DeepEqual(prevMap.Labels, currMap) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Scheduler) PortFilter(requests []ResourceRequest, hosts []string) []string {

@@ -1,9 +1,12 @@
 package scheduler
 
+import "github.com/rancher/go-rancher-metadata/metadata"
+
 type ResourceUpdater interface {
 	CreateResourcePool(hostUUID string, pool ResourcePool) error
 	UpdateResourcePool(hostUUID string, pool ResourcePool, updatePool bool) bool
 	RemoveHost(hostUUID string)
+	CompareHostLabels(hosts []metadata.Host) bool
 }
 
 type ResourceRequest interface {
