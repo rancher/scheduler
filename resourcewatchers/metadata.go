@@ -90,7 +90,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, &scheduler.ComputeResourcePool{
 				Resource: resourceKey,
 				Total:    total,
-			}, false)
+			})
 			if poolDoesntExist {
 				if usedResourcesByHost == nil {
 					usedResourcesByHost, err = w.getUsedResourcesByHost()
@@ -110,11 +110,12 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		portPool := w.getPortPoolFromHost(h)
 		// Note: UpdateResourcePool for ports is effectively a no-op. It just checks if the pool has been created.
 		// This means that we cannot currently back-populate "native" containers into the scheduler.
-		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool, false)
+		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
 		if poolDoesntExist {
 			w.resourceUpdater.CreateResourcePool(h.UUID, portPool)
 		} else if w.previousIPs[h.UUID] != h.Labels[ipLabel] {
-			w.resourceUpdater.UpdateResourcePool(h.UUID, portPool, true)
+			portPool.ShouldUpdate = true
+			w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
 		}
 		w.previousIPs[h.UUID] = h.Labels[ipLabel]
 
@@ -123,7 +124,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			Resource: hostLabels,
 			Labels:   h.Labels,
 		}
-		poolDoesntExist = !w.resourceUpdater.UpdateResourcePool(h.UUID, labelPool, false)
+		poolDoesntExist = !w.resourceUpdater.UpdateResourcePool(h.UUID, labelPool)
 		if poolDoesntExist {
 			w.resourceUpdater.CreateResourcePool(h.UUID, labelPool)
 		}
@@ -176,7 +177,7 @@ func (w *metadataWatcher) checkError(err error) {
 	logrus.Errorf("Error %v getting metadata: %v", w.consecutiveErrorCount, err)
 }
 
-func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) scheduler.ResourcePool {
+func (w *metadataWatcher) getPortPoolFromHost(h metadata.Host) *scheduler.PortResourcePool {
 	pool := &scheduler.PortResourcePool{
 		PortBindingMapTCP: map[string]map[int64]string{},
 		GhostMapTCP:       map[string]map[int64]string{},

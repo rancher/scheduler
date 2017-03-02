@@ -19,6 +19,100 @@ const (
 	protocol     = "protocol"
 )
 
+// PortFilter define a filter based on ports conflicts
+type PortFilter struct {
+}
+
+func (c PortFilter) Filter(scheduler *Scheduler, resourceRequests []ResourceRequest, context Context, hosts []string) []string {
+	filteredHosts := []string{}
+	for _, host := range hosts {
+		portPool, ok := scheduler.hosts[host].pools["portReservation"].(*PortResourcePool)
+		if !ok {
+			logrus.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", hosts)
+		}
+		qualified := true
+		for _, request := range resourceRequests {
+			if rr, ok := request.(PortBindingResourceRequest); ok {
+				if !portPool.ArePortsAvailable(rr.PortRequests) {
+					qualified = false
+					break
+				}
+			}
+		}
+		if qualified {
+			filteredHosts = append(filteredHosts, host)
+		}
+	}
+	return filteredHosts
+}
+
+// PortReserveAction is a reserve action for ports
+type PortReserveAction struct {
+	portsRollback []map[string]interface{}
+}
+
+func (p *PortReserveAction) Reserve(scheduler *Scheduler, requests []ResourceRequest, context Context, host *host, force bool, data map[string]interface{}) error {
+	for _, rr := range requests {
+		pool, ok := host.pools[rr.GetResourceType()]
+		if !ok {
+			logrus.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.GetResourceType(), host.id, rr)
+			continue
+		}
+		PoolType := pool.GetPoolType()
+		if PoolType == portPool {
+			pool := pool.(*PortResourcePool)
+			request := rr.(PortBindingResourceRequest)
+			result, e := PortReserve(pool, request)
+			p.portsRollback = append(p.portsRollback, result)
+			logrus.Debugf("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
+			if e != nil && !force {
+				return e
+			}
+			if _, ok := data[request.Resource]; !ok {
+				data[request.Resource] = []map[string]interface{}{}
+			}
+			data[request.Resource] = append(data[request.Resource].([]map[string]interface{}), result)
+		}
+	}
+	return nil
+}
+
+func (p *PortReserveAction) RollBack(scheduler *Scheduler, requests []ResourceRequest, context Context, host *host) {
+	if pool, ok := host.pools["portReservation"].(*PortResourcePool); ok {
+		for _, prb := range p.portsRollback {
+			if portReservation, ok := prb[allocatedIPs].([]map[string]interface{}); ok {
+				for _, portReserved := range portReservation {
+					ip := portReserved[allocatedIP].(string)
+					port := portReserved[publicPort].(int64)
+					prot := portReserved[protocol].(string)
+					pool.ReleasePort(ip, port, prot, "")
+					logrus.Infof("Roll back ip [%v] and port [%v]", ip, port)
+				}
+			}
+		}
+	}
+}
+
+// PortReleaseAction is a release action to release ports resources
+type PortReleaseAction struct{}
+
+func (p PortReleaseAction) Release(scheduler *Scheduler, requests []ResourceRequest, context Context, host *host) {
+	for _, rr := range requests {
+		p, ok := host.pools[rr.GetResourceType()]
+		if !ok {
+			logrus.Infof("Host %v doesn't have resource pool %v. Nothing to do.", host.id, rr.GetResourceType())
+			continue
+		}
+		PoolType := p.GetPoolType()
+		if PoolType == portPool {
+			pool := p.(*PortResourcePool)
+			request := rr.(PortBindingResourceRequest)
+			PortRelease(pool, request)
+			logrus.Infof("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
+		}
+	}
+}
+
 // ReserveIPPort reserve an ip and port from a port pool
 // if the ip is not in the default map, then reserve on the ghost map.
 // 	case 1: reserve default map 0.0.0.0, ip 192.168.1.1. Check if port is used by 0.0.0.0, if not then reserve on ghost map

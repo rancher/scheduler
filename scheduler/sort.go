@@ -1,5 +1,7 @@
 package scheduler
 
+import "sort"
+
 func filter(hosts map[string]*host, resourceRequests []ResourceRequest) []*host {
 	filtered := []*host{}
 	aggregateResReqs := map[string]ResourceRequest{}
@@ -32,6 +34,23 @@ Outer:
 	}
 
 	return filtered
+}
+
+func sortHosts(scheduler *Scheduler, resourceRequests []ResourceRequest, context Context, hosts []string) []string {
+	if len(hosts) == 0 {
+		return []string{}
+	}
+	filteredHosts := []*host{}
+	for _, host := range hosts {
+		filteredHosts = append(filteredHosts, scheduler.hosts[host])
+	}
+	hs := hostSorter{
+		hosts:            filteredHosts,
+		resourceRequests: resourceRequests,
+	}
+	sort.Sort(hs)
+	sortedIDs := ids(hs.hosts)
+	return sortedIDs
 }
 
 type hostSorter struct {
