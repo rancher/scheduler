@@ -26,7 +26,7 @@ func (h *schedulingHandler) Reserve(event *revents.Event, client *client.Rancher
 		return errors.Wrapf(err, "Error decoding reserve event %v.", event)
 	}
 
-	result, err := h.scheduler.ReserveResources(data.HostID, data.Force, data.ResourceRequests)
+	result, err := h.scheduler.ReserveResources(data.HostID, data.Force, data.ResourceRequests, data.Context)
 	if err != nil {
 		return errors.Wrapf(err, "Error reserving resources. Event: %v.", event)
 	}
@@ -40,7 +40,7 @@ func (h *schedulingHandler) Release(event *revents.Event, client *client.Rancher
 		return errors.Wrapf(err, "Error decoding release event %v.", event)
 	}
 
-	err = h.scheduler.ReleaseResources(data.HostID, data.ResourceRequests)
+	err = h.scheduler.ReleaseResources(data.HostID, data.ResourceRequests, data.Context)
 	if err != nil {
 		return errors.Wrapf(err, "Error releasing resources. Event %v.", event)
 	}

@@ -2,13 +2,12 @@ package scheduler
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
-
-	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/rancher/go-rancher-metadata/metadata"
-	"reflect"
+	"time"
 )
 
 const (
@@ -28,14 +27,18 @@ type host struct {
 func NewScheduler(sleepTime int) *Scheduler {
 	return &Scheduler{
 		hosts:     map[string]*host{},
+		services:  map[string]*serviceMetadata{},
 		sleepTime: sleepTime,
+		signals:   map[string]bool{},
 	}
 }
 
 type Scheduler struct {
 	mu        sync.RWMutex
 	hosts     map[string]*host
+	services  map[string]*serviceMetadata
 	sleepTime int
+	signals   map[string]bool
 }
 
 func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, context Context) ([]string, error) {
@@ -54,7 +57,7 @@ func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, con
 	return filteredHosts, nil
 }
 
-func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests []ResourceRequest) (map[string]interface{}, error) {
+func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests []ResourceRequest, context Context) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -73,13 +76,13 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	executedActions := []ReserveAction{}
 
 	for _, action := range reserveActions {
-		err := action.Reserve(s, resourceRequests, nil, h, force, data)
+		err := action.Reserve(s, resourceRequests, context, h, force, data)
 		executedActions = append(executedActions, action)
 		if err != nil {
 			logrus.Error("Error happens in reserving resource. Rolling back the reservation")
 			// rollback previous reserve actions
 			for _, exeAction := range executedActions {
-				exeAction.RollBack(s, resourceRequests, nil, h)
+				exeAction.RollBack(s, resourceRequests, context, h)
 			}
 			return nil, err
 		}
@@ -87,7 +90,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	return data, nil
 }
 
-func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceRequest) error {
+func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceRequest, context Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -100,7 +103,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 	releaseActions := getReleaseActions()
 
 	for _, rAction := range releaseActions {
-		rAction.Release(s, resourceRequests, nil, h)
+		rAction.Release(s, resourceRequests, context, h)
 	}
 	return nil
 }
@@ -188,5 +191,11 @@ func (s *Scheduler) reserveTempPool(hostID string, requests []ResourceRequest) {
 				}
 			}
 		}
+	}
+}
+
+func (s *Scheduler) UpdateService(services []metadata.Service) {
+	for _, service := range services {
+		constructServiceWithLabel(s, service)
 	}
 }

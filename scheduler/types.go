@@ -10,6 +10,7 @@ type ResourceUpdater interface {
 	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
 	RemoveHost(hostUUID string)
 	CompareHostLabels(hosts []metadata.Host) bool
+	UpdateService(services []metadata.Service)
 }
 
 type ResourceRequest interface {
@@ -224,4 +225,19 @@ type contextStruct struct {
 	DNSInternal           string      `json:"dnsInternal"`
 	DNSSearchInternal     string      `json:"dnsSearchInternal"`
 	Version               string      `json:"version"`
+}
+
+type serviceMetadata struct {
+	// desiredDistribution defines the distribution of service instances across zones
+	// for example, service A should have a distribution like {"west-1":1, "west-2"=2}
+	desiredDistribution map[string]int64
+
+	// currentDistribution defines the current instance landing on each zones
+	currentDistribution map[string]int64
+
+	total int64
+
+	totalWeight int64
+
+	key string
 }
