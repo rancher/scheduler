@@ -68,12 +68,10 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 	}
 	newKnownHosts := map[string]bool{}
 
+	shouldSend := false
 	dif := w.resourceUpdater.CompareHostLabels(hosts)
 	if dif {
-		err = sendExternalEvent(w.rclient)
-		if err != nil {
-			logrus.Warnf("Error in sending external host event. err: %+v", err)
-		}
+		shouldSend = true
 	}
 
 	for _, h := range hosts {
@@ -134,6 +132,14 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 
 	for uuid := range w.knownHosts {
 		w.resourceUpdater.RemoveHost(uuid)
+	}
+
+	// call reconcile hook after updating scheduler pool
+	if shouldSend {
+		err = sendExternalEvent(w.rclient)
+		if err != nil {
+			logrus.Warnf("Error in sending external host event. err: %+v", err)
+		}
 	}
 
 	w.knownHosts = newKnownHosts
