@@ -1,12 +1,31 @@
 package scheduler
 
-import (
-	"strings"
-)
+import "strings"
 
 const (
 	requireAnyLabel = "io.rancher.scheduler.require_any"
 )
+
+// LabelFilter define a filter based on label constraints. For example, require_any label constraints
+type LabelFilter struct {
+}
+
+func (l LabelFilter) Filter(scheduler *Scheduler, resourceRequest []ResourceRequest, context Context, hosts []string) []string {
+	constraints := getAllConstraints()
+	qualifiedHosts := []string{}
+	for _, host := range hosts {
+		qualified := true
+		for _, constraint := range constraints {
+			if !constraint.Match(host, scheduler, context) {
+				qualified = false
+			}
+		}
+		if qualified {
+			qualifiedHosts = append(qualifiedHosts, host)
+		}
+	}
+	return qualifiedHosts
+}
 
 type Constraints interface {
 	Match(string, *Scheduler, Context) bool
@@ -72,21 +91,4 @@ func getLabelFromContext(context Context) []map[string]string {
 		result = append(result, lowerMap)
 	}
 	return result
-}
-
-func (s *Scheduler) LabelFilter(hosts []string, context Context) []string {
-	constraints := getAllConstraints()
-	qualifiedHosts := []string{}
-	for _, host := range hosts {
-		qualified := true
-		for _, constraint := range constraints {
-			if !constraint.Match(host, s, context) {
-				qualified = false
-			}
-		}
-		if qualified {
-			qualifiedHosts = append(qualifiedHosts, host)
-		}
-	}
-	return qualifiedHosts
 }
