@@ -12,7 +12,7 @@ cd $(dirname $0)/../package
 TAG=${TAG:-${IMAGE_VERSION}${SUFFIX}}
 REPO=${REPO:-rancher}
 
-if [ ! -e ../bin/storage ]; then
+if [ ! -e ../bin/scheduler ]; then
     ../scripts/build
 fi
 
