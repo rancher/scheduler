@@ -65,6 +65,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		if err != nil {
 			logrus.Panicf("Cannot get used resources for hosts. Error: %v", err)
 		}
+
 	}
 	newKnownHosts := map[string]bool{}
 
@@ -129,6 +130,15 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			w.resourceUpdater.CreateResourcePool(h.UUID, labelPool)
 		}
 
+	}
+
+	if !w.initialized {
+		// update service
+		services, err := w.client.GetServices()
+		if err != nil {
+			logrus.Errorf("Error in getting service froms metadata; err: %v", err)
+		}
+		w.resourceUpdater.UpdateService(services)
 	}
 
 	for uuid := range w.knownHosts {

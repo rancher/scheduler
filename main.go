@@ -52,7 +52,7 @@ func run(c *cli.Context) error {
 	}
 
 	sleep := os.Getenv("CATTLE_SCHEDULER_SLEEPTIME")
-	time := 1
+	time := 2
 	if sleep != "" {
 		if val, err := strconv.Atoi(sleep); err != nil {
 			time = val

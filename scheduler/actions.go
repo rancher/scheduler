@@ -29,6 +29,9 @@ func getFilters() []Filter {
 	// add LabelFilter
 	filters = append(filters, LabelFilter{})
 
+	// add ScaleGroupFilter
+	filters = append(filters, ScaleGroupFilter{})
+
 	return filters
 }
 
@@ -42,6 +45,9 @@ func getReserveActions() []ReserveAction {
 	// add PortReserveAction
 	actions = append(actions, &PortReserveAction{})
 
+	// add ScaleGroupReserveAction
+	actions = append(actions, &ScaleGroupReserveAction{})
+
 	return actions
 }
 
@@ -54,6 +60,9 @@ func getReleaseActions() []ReleaseAction {
 
 	// add PortReleaseAction
 	actions = append(actions, PortReleaseAction{})
+
+	// add ScaleGroupReleaseAction
+	actions = append(actions, ScaleGroupReleaseAction{})
 
 	return actions
 }
