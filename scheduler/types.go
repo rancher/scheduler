@@ -10,6 +10,9 @@ type ResourceUpdater interface {
 	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
 	RemoveHost(hostUUID string)
 	CompareHostLabels(hosts []metadata.Host) bool
+	UpdateWithMetadata(force bool) (bool, error)
+	GetMetadataClient() metadata.Client
+	SetMetadataClient(client metadata.Client)
 }
 
 type ResourceRequest interface {
@@ -60,9 +63,10 @@ type ResourcePool interface {
 }
 
 type ComputeResourcePool struct {
-	Resource string
-	Total    int64
-	Used     int64
+	Resource  string
+	Total     int64
+	Used      int64
+	UpdateAll bool
 }
 
 func (c *ComputeResourcePool) GetPoolResourceType() string {
@@ -80,9 +84,14 @@ func (c *ComputeResourcePool) Create(host *host) {
 
 func (c *ComputeResourcePool) Update(host *host) {
 	e := host.pools[c.Resource].(*ComputeResourcePool)
-	if e.Total != c.Total {
-		logrus.Infof("Updating resource pool [%v] to %v for host %v", c.GetPoolResourceType(), c.Total, host.id)
-		e.Total = c.Total
+	if c.UpdateAll {
+		logrus.Infof("Updating resource pool [%v] with total %v and used %v for host  %v", c.Resource, c.Total, c.Used, host.id)
+		host.pools[c.Resource] = &ComputeResourcePool{Total: c.Total, Used: c.Used, Resource: c.Resource}
+	} else {
+		if e.Total != c.Total {
+			logrus.Infof("Updating resource pool [%v] to %v for host %v", c.GetPoolResourceType(), c.Total, host.id)
+			e.Total = c.Total
+		}
 	}
 }
 
@@ -100,7 +109,7 @@ func (p *PortResourcePool) GetPoolResourceType() string {
 }
 
 func (p *PortResourcePool) GetPoolType() string {
-	return portPool
+	return portPoolType
 }
 
 func (p *PortResourcePool) Create(host *host) {
@@ -119,7 +128,7 @@ func (p *PortResourcePool) Update(host *host) {
 		for ip := range p.PortBindingMapTCP {
 			ipset = append(ipset, ip)
 		}
-		logrus.Infof("Adding resource pool [%v], ip set %v, ports map tcp %v, ports map udp %v for host %v", p.Resource,
+		logrus.Infof("Updating resource pool [%v], ip set %v, ports map tcp %v, ports map udp %v for host %v", p.Resource,
 			ipset, p.PortBindingMapTCP, p.PortBindingMapUDP, host.id)
 		host.pools[p.Resource] = p
 	}
