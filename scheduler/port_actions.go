@@ -24,11 +24,14 @@ type PortFilter struct {
 }
 
 func (c PortFilter) Filter(scheduler *Scheduler, resourceRequests []ResourceRequest, context Context, hosts []string) []string {
+	if resourceRequests == nil {
+		return hosts
+	}
 	filteredHosts := []string{}
 	for _, host := range hosts {
 		portPool, ok := scheduler.hosts[host].pools["portReservation"].(*PortResourcePool)
 		if !ok {
-			logrus.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", hosts)
+			logrus.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", host, resourceRequests)
 		}
 		qualified := true
 		for _, request := range resourceRequests {
@@ -59,7 +62,7 @@ func (p *PortReserveAction) Reserve(scheduler *Scheduler, requests []ResourceReq
 			continue
 		}
 		PoolType := pool.GetPoolType()
-		if PoolType == portPool {
+		if PoolType == portPoolType {
 			pool := pool.(*PortResourcePool)
 			request := rr.(PortBindingResourceRequest)
 			result, e := PortReserve(pool, request)
@@ -104,7 +107,7 @@ func (p PortReleaseAction) Release(scheduler *Scheduler, requests []ResourceRequ
 			continue
 		}
 		PoolType := p.GetPoolType()
-		if PoolType == portPool {
+		if PoolType == portPoolType {
 			pool := p.(*PortResourcePool)
 			request := rr.(PortBindingResourceRequest)
 			PortRelease(pool, request)

@@ -54,6 +54,17 @@ func (h *schedulingHandler) Prioritize(event *revents.Event, client *client.Ranc
 		return errors.Wrapf(err, "Error decoding prioritize event %v.", event)
 	}
 
+	for i := 0; i < 5; i++ {
+		err = h.scheduler.UpdateWithMetadata(false)
+		if err != nil {
+			if i == 4 {
+				panic(fmt.Sprintf("Failed at metadata initialization. 5 consecutive errors attempting to reach metadata. Panicing. Error: %v", err))
+			}
+			continue
+		}
+		break
+	}
+
 	candidates, err := h.scheduler.PrioritizeCandidates(data.ResourceRequests, data.Context)
 	if err != nil {
 		return errors.Wrapf(err, "Error prioritizing candidates. Event %v", event)
