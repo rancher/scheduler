@@ -6,6 +6,7 @@ import (
 	check "gopkg.in/check.v1"
 
 	revents "github.com/rancher/event-subscriber/events"
+	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/go-rancher/v2"
 	"github.com/rancher/scheduler/scheduler"
 )
@@ -198,6 +199,54 @@ func (s *MetadataTestSuite) TestProcessPhase(c *check.C) {
 	req["phase"] = "instance.start"
 	err = handler.Reserve(event, mockClient)
 	c.Assert(err, check.NotNil)
+}
+
+func (s *MetadataTestSuite) TestInitializationMetadataUpdate(c *check.C) {
+	sched := scheduler.NewScheduler(1)
+	mockMDClient := &mockMetadataClient{}
+	sched.SetMetadataClient(mockMDClient)
+
+	handler := &schedulingHandler{
+		scheduler: sched,
+	}
+
+	req := map[string]interface{}{
+		"phase": "instance.allocate",
+		"resourceRequests": []interface{}{
+			map[string]interface{}{
+				"type":     "computePool",
+				"resource": "memoryReservation",
+				"amount":   1,
+			},
+		},
+	}
+	event := &revents.Event{
+		Data: map[string]interface{}{
+			"schedulerRequest": req,
+		},
+	}
+
+	mockPublishOps := &mockPublish{}
+	mockClient := &client.RancherClient{
+		Publish: mockPublishOps,
+	}
+
+	// in here if there is no error, it means metadata initialization has been finished in prioritized events.
+	err := handler.Prioritize(event, mockClient)
+	c.Assert(err, check.IsNil)
+	c.Assert(mockPublishOps.published.Data, check.DeepEquals, map[string]interface{}{"prioritizedCandidates": []string{"host-b", "host-a"}})
+}
+
+type mockMetadataClient struct {
+	metadata.Client
+}
+
+func (m *mockMetadataClient) GetHosts() ([]metadata.Host, error) {
+	return []metadata.Host{{UUID: "host-a", Memory: 1}, {UUID: "host-b", Memory: 2}}, nil
+}
+
+func (m *mockMetadataClient) GetContainers() ([]metadata.Container, error) {
+	return []metadata.Container{}, nil
 }
 
 type mockPublish struct {

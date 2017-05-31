@@ -60,6 +60,7 @@ func run(c *cli.Context) error {
 	}
 	scheduler := scheduler.NewScheduler(time)
 	mdClient := metadata.NewClient(fmt.Sprintf("http://%s/2016-07-29", c.String("metadata-address")))
+	scheduler.SetMetadataClient(mdClient)
 
 	url := os.Getenv("CATTLE_URL")
 	ak := os.Getenv("CATTLE_ACCESS_KEY")
@@ -92,6 +93,27 @@ func run(c *cli.Context) error {
 		err := startHealthCheck(c.Int("health-check-port"))
 		exit <- errors.Wrapf(err, "Healthcheck provider died.")
 	}(exit)
+
+	go func() {
+		for {
+			t.Sleep(t.Minute * 3)
+			logrus.Info("Syncing scheduler information with rancher metadata")
+			for {
+				ok, err := scheduler.UpdateWithMetadata(true)
+				if err != nil {
+					logrus.Warnf("Error syncing with metadata: %v", err)
+					break
+				}
+
+				if !ok {
+					logrus.Infof("Delaying metadata sync by 2 seconds since scheduler is actively handling events.")
+					t.Sleep(t.Second * 2)
+				}
+				// Sync was completed successfully. Break out of inner loop
+				break
+			}
+		}
+	}()
 
 	err = <-exit
 	logrus.Errorf("Exiting scheduler with error: %v", err)
