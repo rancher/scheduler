@@ -10,7 +10,7 @@ type ResourceUpdater interface {
 	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
 	RemoveHost(hostUUID string)
 	CompareHostLabels(hosts []metadata.Host) bool
-	UpdateWithMetadata(force bool) error
+	UpdateWithMetadata(force bool) (bool, error)
 	GetMetadataClient() metadata.Client
 	SetMetadataClient(client metadata.Client)
 }

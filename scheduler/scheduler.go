@@ -53,12 +53,15 @@ type Scheduler struct {
 	mdClient    metadata.Client
 	knownHosts  map[string]bool
 	//lock for initialization update
-	iniMu sync.RWMutex
+	iniMu       sync.RWMutex
+	lastEventMu sync.Mutex
+	lastEvent   time.Time
 }
 
 func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, context Context) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	filteredHosts := []string{}
 	for host := range s.hosts {
 		filteredHosts = append(filteredHosts, host)
@@ -190,19 +193,31 @@ func (s *Scheduler) CompareHostLabels(hosts []metadata.Host) bool {
 	return false
 }
 
-func (s *Scheduler) UpdateWithMetadata(force bool) error {
+func (s *Scheduler) UpdateWithMetadata(force bool) (bool, error) {
 	// if scheduler is not initialized or is updated by force, trigger the update logic
 	s.iniMu.Lock()
 	defer s.iniMu.Unlock()
+
+	// After we're initialized, don't perform the sync if the an event has come in in the last two seconds.
+	// Scheduling is bursty, so this mitigates performing the sync during a scheduling burst.
+	// Syncing and handling events at the same time is ok, but avoiding it is better.
+	if s.initialized {
+		check := s.getLastEvent().Add(time.Second * 2)
+		now := time.Now()
+		if check.After(now) || check.Equal(now) {
+			return false, nil
+		}
+	}
+
 	if !s.initialized || force {
 		hosts, err := s.mdClient.GetHosts()
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		usedResourcesByHost, err := GetUsedResourcesByHost(s.mdClient)
 		if err != nil {
-			return err
+			return false, err
 		}
 		newKnownHosts := map[string]bool{}
 
@@ -235,7 +250,7 @@ func (s *Scheduler) UpdateWithMetadata(force bool) error {
 
 			portPool, err := GetPortPoolFromHost(h, s.mdClient)
 			if err != nil {
-				return err
+				return false, err
 			}
 			portPool.ShouldUpdate = true
 			poolDoesntExist := !s.UpdateResourcePool(h.UUID, portPool)
@@ -263,7 +278,7 @@ func (s *Scheduler) UpdateWithMetadata(force bool) error {
 			s.initialized = true
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func (s *Scheduler) GetMetadataClient() metadata.Client {
@@ -291,4 +306,17 @@ func (s *Scheduler) reserveTempPool(hostID string, requests []ResourceRequest) {
 			}
 		}
 	}
+}
+
+func (s *Scheduler) setLastEvent() {
+	s.lastEventMu.Lock()
+	defer s.lastEventMu.Unlock()
+	s.lastEvent = time.Now()
+}
+
+func (s *Scheduler) getLastEvent() time.Time {
+	s.lastEventMu.Lock()
+	defer s.lastEventMu.Unlock()
+	le := s.lastEvent // Get a copy while under the lock
+	return le
 }

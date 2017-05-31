@@ -55,7 +55,7 @@ func (h *schedulingHandler) Prioritize(event *revents.Event, client *client.Ranc
 	}
 
 	for i := 0; i < 5; i++ {
-		err = h.scheduler.UpdateWithMetadata(false)
+		_, err = h.scheduler.UpdateWithMetadata(false)
 		if err != nil {
 			if i == 4 {
 				panic(fmt.Sprintf("Failed at metadata initialization. 5 consecutive errors attempting to reach metadata. Panicing. Error: %v", err))
