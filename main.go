@@ -90,7 +90,7 @@ func run(c *cli.Context) error {
 	}(exit)
 
 	go func(exit chan<- error) {
-		err := startHealthCheck(c.Int("health-check-port"))
+		err := startHealthCheck(c.Int("health-check-port"), mdClient)
 		exit <- errors.Wrapf(err, "Healthcheck provider died.")
 	}(exit)
 
@@ -121,9 +121,23 @@ func run(c *cli.Context) error {
 	return err
 }
 
-func startHealthCheck(listen int) error {
+func startHealthCheck(listen int, md metadata.Client) error {
 	http.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "ok")
+		healthy := true
+		_, err := md.GetVersion()
+		if err != nil {
+			healthy = false
+		}
+		cattleURL := os.Getenv("CATTLE_URL")
+		_, err = http.Get(cattleURL[:len(cattleURL)-2] + "ping")
+		if err != nil {
+			healthy = false
+		}
+		if healthy {
+			fmt.Fprint(w, "ok")
+		} else {
+			http.Error(w, "Metadata and dns is unreachable", http.StatusNotFound)
+		}
 	})
 	logrus.Infof("Listening for health checks on 0.0.0.0:%d/healthcheck", listen)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", listen), nil)
