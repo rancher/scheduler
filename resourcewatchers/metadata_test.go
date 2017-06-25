@@ -48,11 +48,11 @@ func (s *MetadataTestSuite) TestWatchMetadata(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(actual, check.DeepEquals, []string{"host-b"})
 
-	_, err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 2, Resource: "memoryReservation"}})
+	_, err = sched.ReserveResources("host-b", false, []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 2, Resource: "memoryReservation"}}, nil)
 	c.Assert(err, check.IsNil)
 
 	// Release the initially used memory from host-a
-	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}})
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}}, nil)
 
 	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.AmountBasedResourceRequest{Amount: 1, Resource: "memoryReservation"}}, scheduler.Context{})
 	c.Assert(err, check.IsNil)
@@ -104,7 +104,7 @@ func (s *MetadataTestSuite) TestWatchMetadataPortPool(c *check.C) {
 	c.Assert(actual, check.HasLen, 2)
 
 	// release the port 8081
-	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}})
+	err = sched.ReleaseResources("host-a", []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{IPAddress: "192.168.1.1", PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}, nil)
 
 	// when 8081 is released, scheduler should return two host available
 	actual, err = sched.PrioritizeCandidates([]scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}, scheduler.Context{})
@@ -140,9 +140,9 @@ func (s *MetadataTestSuite) TestIPLabelChange(c *check.C) {
 
 	r1 := []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "1", ResourceUUID: "12345", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}
 	r2 := []scheduler.ResourceRequest{scheduler.PortBindingResourceRequest{InstanceID: "2", ResourceUUID: "12346", Resource: "portReservation", PortRequests: []scheduler.PortSpec{{PublicPort: 8081, PrivatePort: 8081, Protocol: "tcp"}}}}
-	_, err := sched.ReserveResources("host-a", false, r1)
+	_, err := sched.ReserveResources("host-a", false, r1, nil)
 	c.Assert(err, check.IsNil)
-	_, err = sched.ReserveResources("host-a", false, r2)
+	_, err = sched.ReserveResources("host-a", false, r2, nil)
 	c.Assert(err, check.IsNil)
 }
 

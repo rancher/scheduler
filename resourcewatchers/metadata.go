@@ -35,14 +35,18 @@ type metadataWatcher struct {
 }
 
 const (
-	instancePool            string = "instanceReservation"
-	memoryPool              string = "memoryReservation"
-	cpuPool                 string = "cpuReservation"
-	storageSize             string = "storageSize"
-	totalAvailableInstances int64  = 1000000
-	hostLabels              string = "hostLabels"
-	ipLabel                 string = "io.rancher.scheduler.ips"
-	schedulerUpdate         string = "scheduler.update"
+	instancePool              string = "instanceReservation"
+	memoryPool                string = "memoryReservation"
+	cpuPool                   string = "cpuReservation"
+	storageSize               string = "storageSize"
+	totalAvailableInstances   int64  = 1000000
+	hostLabels                string = "hostLabels"
+	ipLabel                   string = "io.rancher.scheduler.ips"
+	schedulerUpdate           string = "scheduler.update"
+	tempDeploymentUnitPool    string = "tempDeploymentUnitPool"
+	currentDeploymentUnitPool string = "currentDeploymentUnitPool"
+	vpcSubnetLabel            string = "io.rancher.vpc.subnet"
+	deploymentUnitLabel       string = "io.rancher.service.deployment.unit"
 )
 
 func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
@@ -67,6 +71,20 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 	dif := w.resourceUpdater.CompareHostLabels(hosts)
 	if dif {
 		shouldSend = true
+	}
+
+	containers, err := w.client.GetContainers()
+	if err != nil {
+		w.checkError(err)
+	}
+
+	currentHostDeploymentsMap := map[string][]string{}
+	for _, c := range containers {
+		dm, ok := c.Labels[deploymentUnitLabel]
+		if !ok {
+			continue
+		}
+		currentHostDeploymentsMap[c.HostUUID] = append(currentHostDeploymentsMap[c.HostUUID], dm)
 	}
 
 	for _, h := range hosts {
@@ -125,6 +143,25 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 			w.resourceUpdater.CreateResourcePool(h.UUID, labelPool)
 		}
 
+		if _, ok := h.Labels[vpcSubnetLabel]; ok {
+			poolDoesntExist = !w.resourceUpdater.CheckResourcePool(h.UUID, tempDeploymentUnitPool)
+			if poolDoesntExist {
+				duPool := &scheduler.DeploymentUnitPool{
+					Resource:    tempDeploymentUnitPool,
+					Deployments: []string{},
+				}
+				w.resourceUpdater.CreateResourcePool(h.UUID, duPool)
+			}
+
+			duPool := &scheduler.DeploymentUnitPool{
+				Resource:    currentDeploymentUnitPool,
+				Deployments: currentHostDeploymentsMap[h.UUID],
+			}
+			poolDoesntExist = !w.resourceUpdater.UpdateResourcePool(h.UUID, duPool)
+			if poolDoesntExist {
+				w.resourceUpdater.CreateResourcePool(h.UUID, duPool)
+			}
+		}
 	}
 
 	for uuid := range w.knownHosts {

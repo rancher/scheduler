@@ -29,6 +29,9 @@ func getFilters() []Filter {
 	// add LabelFilter
 	filters = append(filters, LabelFilter{})
 
+	// add VpcSubnetFilter
+	filters = append(filters, VpcSubnetFilter{})
+
 	return filters
 }
 
@@ -42,6 +45,9 @@ func getReserveActions() []ReserveAction {
 	// add PortReserveAction
 	actions = append(actions, &PortReserveAction{})
 
+	//add VpcSubnetReserveAction
+	actions = append(actions, &VpcSubnetReserveAction{})
+
 	return actions
 }
 
@@ -54,6 +60,9 @@ func getReleaseActions() []ReleaseAction {
 
 	// add PortReleaseAction
 	actions = append(actions, PortReleaseAction{})
+
+	//add  VpcSubnetReleaseAction
+	actions = append(actions, VpcSubnetReleaseAction{})
 
 	return actions
 }
