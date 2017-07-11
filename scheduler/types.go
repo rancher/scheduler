@@ -8,6 +8,7 @@ import (
 type ResourceUpdater interface {
 	CreateResourcePool(hostUUID string, pool ResourcePool) error
 	UpdateResourcePool(hostUUID string, pool ResourcePool) bool
+	CheckResourcePool(hostUUID string, resourceType string) bool
 	RemoveHost(hostUUID string)
 	CompareHostLabels(hosts []metadata.Host) bool
 	UpdateWithMetadata(force bool) (bool, error)
@@ -154,6 +155,28 @@ func (p *LabelPool) Create(host *host) {
 
 func (p *LabelPool) Update(host *host) {
 	host.pools[p.Resource] = p
+}
+
+type DeploymentUnitPool struct {
+	Resource    string
+	Deployments []string
+}
+
+func (d *DeploymentUnitPool) GetPoolResourceType() string {
+	return d.Resource
+}
+
+func (d *DeploymentUnitPool) GetPoolType() string {
+	return currentDeploymentUnitPool + "/" + tempDeploymentUnitPool
+}
+
+func (d *DeploymentUnitPool) Create(host *host) {
+	logrus.Infof("Adding resource pool [%v] with deployments [%v]", d.Resource, d.Deployments)
+	host.pools[d.Resource] = d
+}
+
+func (d *DeploymentUnitPool) Update(host *host) {
+	host.pools[d.Resource] = d
 }
 
 type Context []contextStruct

@@ -80,7 +80,7 @@ func (s *Scheduler) PrioritizeCandidates(resourceRequests []ResourceRequest, con
 	return filteredHosts, nil
 }
 
-func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests []ResourceRequest) (map[string]interface{}, error) {
+func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests []ResourceRequest, context Context) (map[string]interface{}, error) {
 	s.globalMu.RLock()
 	defer s.globalMu.RUnlock()
 	s.mu.Lock()
@@ -103,13 +103,13 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	executedActions := []ReserveAction{}
 
 	for _, action := range reserveActions {
-		err := action.Reserve(s, resourceRequests, nil, h, force, data)
+		err := action.Reserve(s, resourceRequests, context, h, force, data)
 		executedActions = append(executedActions, action)
 		if err != nil {
 			logrus.Error("Error happens in reserving resource. Rolling back the reservation")
 			// rollback previous reserve actions
 			for _, exeAction := range executedActions {
-				exeAction.RollBack(s, resourceRequests, nil, h)
+				exeAction.RollBack(s, resourceRequests, context, h)
 			}
 			return nil, err
 		}
@@ -117,7 +117,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 	return data, nil
 }
 
-func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceRequest) error {
+func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceRequest, context Context) error {
 	s.globalMu.RLock()
 	defer s.globalMu.RUnlock()
 	s.mu.Lock()
@@ -134,7 +134,7 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 	releaseActions := getReleaseActions()
 
 	for _, rAction := range releaseActions {
-		rAction.Release(s, resourceRequests, nil, h)
+		rAction.Release(s, resourceRequests, context, h)
 	}
 	return nil
 }
@@ -176,6 +176,23 @@ func (s *Scheduler) UpdateResourcePool(hostUUID string, pool ResourcePool) bool 
 	}
 
 	pool.Update(h)
+
+	return true
+}
+
+func (s *Scheduler) CheckResourcePool(hostUUID string, resourceType string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	h, ok := s.hosts[hostUUID]
+	if !ok {
+		return false
+	}
+
+	_, ok = h.pools[resourceType]
+	if !ok {
+		return false
+	}
 
 	return true
 }

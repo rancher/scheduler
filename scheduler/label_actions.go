@@ -1,6 +1,8 @@
 package scheduler
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	requireAnyLabel = "io.rancher.scheduler.require_any"
