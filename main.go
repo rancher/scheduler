@@ -129,10 +129,11 @@ func startHealthCheck(listen int, md metadata.Client) error {
 			healthy = false
 		}
 		cattleURL := os.Getenv("CATTLE_URL")
-		_, err = http.Get(cattleURL[:len(cattleURL)-2] + "ping")
+		resp, err := http.Get(cattleURL[:len(cattleURL)-2] + "ping")
 		if err != nil {
 			healthy = false
 		}
+		defer resp.Body.Close()
 		if healthy {
 			fmt.Fprint(w, "ok")
 		} else {
