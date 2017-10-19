@@ -1,9 +1,13 @@
 package scheduler
 
-import "strings"
+import (
+	"net"
+	"strings"
+)
 
 const (
-	requireAnyLabel = "io.rancher.scheduler.require_any"
+	requireAnyLabel    = "io.rancher.scheduler.require_any"
+	perHostSubnetLabel = "io.rancher.network.per_host_subnet.subnet"
 )
 
 // LabelFilter define a filter based on label constraints. For example, require_any label constraints
@@ -33,7 +37,35 @@ type Constraints interface {
 
 func getAllConstraints() []Constraints {
 	RequireAny := RequireAnyLabelContraints{}
-	return []Constraints{RequireAny}
+	RequestedIP := RequestedIPContraints{}
+	return []Constraints{RequireAny, RequestedIP}
+}
+
+// RequestedIPContraints for per-host-subnet networking
+// https://github.com/rancher/rancher/issues/10168
+type RequestedIPContraints struct{}
+
+func (c RequestedIPContraints) Match(host string, s *Scheduler, context Context) bool {
+	p, ok := s.hosts[host].pools["hostLabels"]
+	if !ok {
+		return true
+	}
+	val, ok := p.(*LabelPool).Labels[perHostSubnetLabel]
+	if !ok || val == "" {
+		return true
+	}
+	_, ipnet, err := net.ParseCIDR(val)
+	if err != nil {
+		return false
+	}
+	containerLabels := getLabelFromContext(context)
+	for _, l := range containerLabels {
+		if requestedIPStr, ok := l["io.rancher.container.requested_ip"]; ok {
+			return ipnet.Contains(net.ParseIP(requestedIPStr))
+		}
+	}
+
+	return true
 }
 
 type RequireAnyLabelContraints struct{}
