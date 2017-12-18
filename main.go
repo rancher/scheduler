@@ -131,7 +131,7 @@ func startHealthCheck(listen int, md metadata.Client) error {
 		cattleURL := os.Getenv("CATTLE_URL")
 		resp, err := http.Get(cattleURL[:len(cattleURL)-2] + "ping")
 		if err != nil {
-			http.Error(w, "Metadata and dns is unreachable", http.StatusNotFound)
+			http.Error(w, "Rancher server is unreachable", http.StatusNotFound)
 			return
 		}
 		defer resp.Body.Close()
