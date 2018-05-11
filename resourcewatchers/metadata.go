@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/go-rancher/v2"
 	"github.com/rancher/scheduler/scheduler"
 )
 
 func WatchMetadata(client metadata.Client, updater scheduler.ResourceUpdater, rclient *client.RancherClient) error {
-	logrus.Infof("Subscribing to metadata changes.")
+	log.Infof("Subscribing to metadata changes.")
 
 	watcher := &metadataWatcher{
 		resourceUpdater: updater,
@@ -58,7 +58,8 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 	if !w.initialized {
 		usedResourcesByHost, err = scheduler.GetUsedResourcesByHost(w.client)
 		if err != nil {
-			logrus.Panicf("Cannot get used resources for hosts. Error: %v", err)
+			log.Errorf("Cannot get used resources for hosts. Error: %v", err)
+			panic(err)
 		}
 	}
 	newKnownHosts := map[string]bool{}
@@ -90,13 +91,15 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 				if usedResourcesByHost == nil {
 					usedResourcesByHost, err = scheduler.GetUsedResourcesByHost(w.client)
 					if err != nil {
-						logrus.Panicf("Cannot get used resources for hosts. Error: %v", err)
+						log.Errorf("Cannot get used resources for hosts. Error: %v", err)
+						panic(err)
 					}
 				}
 
 				usedResource := usedResourcesByHost[h.UUID][resourceKey]
 				if err := w.resourceUpdater.CreateResourcePool(h.UUID, &scheduler.ComputeResourcePool{Resource: resourceKey, Total: total, Used: usedResource}); err != nil {
-					logrus.Panicf("Received an error creating resource pool. This shouldn't have happened. Error: %v.", err)
+					log.Errorf("Received an error creating resource pool. This shouldn't have happened. Error: %v.", err)
+					panic(err)
 				}
 			}
 		}
@@ -135,7 +138,7 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 	if shouldSend {
 		err = sendExternalEvent(w.rclient)
 		if err != nil {
-			logrus.Warnf("Error in sending external host event. err: %+v", err)
+			log.Warnf("Error in sending external host event. err: %+v", err)
 		}
 	}
 
@@ -148,7 +151,7 @@ func (w *metadataWatcher) checkError(err error) {
 	if w.consecutiveErrorCount > 5 {
 		panic(fmt.Sprintf("%v consecutive errors attempting to reach metadata. Panicing. Error: %v", w.consecutiveErrorCount, err))
 	}
-	logrus.Errorf("Error %v getting metadata: %v", w.consecutiveErrorCount, err)
+	log.Errorf("Error %v getting metadata: %v", w.consecutiveErrorCount, err)
 }
 
 func sendExternalEvent(rclient *client.RancherClient) error {

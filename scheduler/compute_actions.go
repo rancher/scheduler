@@ -3,7 +3,7 @@ package scheduler
 import (
 	"bytes"
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 )
 
 // ComputeFilter define a filter based on cpu, memory and instance number
@@ -30,7 +30,7 @@ func (c *ComputeReserveAction) Reserve(scheduler *Scheduler, requests []Resource
 	for _, rr := range requests {
 		p, ok := host.pools[rr.GetResourceType()]
 		if !ok {
-			logrus.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.GetResourceType(), host.id, rr)
+			log.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.GetResourceType(), host.id, rr)
 			continue
 		}
 		PoolType := p.GetPoolType()
@@ -51,7 +51,7 @@ func (c *ComputeReserveAction) Reserve(scheduler *Scheduler, requests []Resource
 		}
 	}
 	if reserveLog != nil {
-		logrus.Info(reserveLog.String())
+		log.Info(reserveLog.String())
 	}
 	return nil
 }
@@ -80,7 +80,7 @@ func (c ComputeReleaseAction) Release(scheduler *Scheduler, requests []ResourceR
 	for _, rr := range requests {
 		p, ok := host.pools[rr.GetResourceType()]
 		if !ok {
-			logrus.Infof("Host %v doesn't have resource pool %v. Nothing to do.", host.id, rr.GetResourceType())
+			log.Infof("Host %v doesn't have resource pool %v. Nothing to do.", host.id, rr.GetResourceType())
 			continue
 		}
 		PoolType := p.GetPoolType()
@@ -88,7 +88,7 @@ func (c ComputeReleaseAction) Release(scheduler *Scheduler, requests []ResourceR
 			pool := p.(*ComputeResourcePool)
 			request := rr.(AmountBasedResourceRequest)
 			if pool.Used-request.Amount < 0 {
-				logrus.Infof("Decreasing used for %v.%v by %v would result in negative usage. Setting to 0.", host.id, request.Resource, request.Amount)
+				log.Infof("Decreasing used for %v.%v by %v would result in negative usage. Setting to 0.", host.id, request.Resource, request.Amount)
 				pool.Used = 0
 			} else {
 				pool.Used = pool.Used - request.Amount
@@ -96,7 +96,7 @@ func (c ComputeReleaseAction) Release(scheduler *Scheduler, requests []ResourceR
 			releaseLog.WriteString(fmt.Sprintf(" %v total: %v used: %v.", request.Resource, pool.Total, pool.Used))
 		}
 	}
-	logrus.Info(releaseLog.String())
+	log.Info(releaseLog.String())
 }
 
 type OverReserveError struct {
