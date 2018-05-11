@@ -3,7 +3,7 @@ package events
 import (
 	"fmt"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	revents "github.com/rancher/event-subscriber/events"
@@ -83,13 +83,13 @@ func publish(event *revents.Event, data map[string]interface{}, apiClient *clien
 	reply.ResourceId = event.ResourceID
 	reply.Data = data
 
-	logrus.Infof("Reply: Name: %v, PreviousIds: %v, ResourceId: %v, Data: %v.", reply.Name, reply.PreviousIds, reply.ResourceId, reply.Data)
+	log.Infof("Reply: Name: %v, PreviousIds: %v, ResourceId: %v, Data: %v.", reply.Name, reply.PreviousIds, reply.ResourceId, reply.Data)
 	_, err := apiClient.Publish.Create(reply)
 	return err
 }
 
 func getEventData(event *revents.Event) (*schedulerData, error) {
-	logrus.Infof("Received event: Name: %s, Event Id: %s, ResourceId : %v", event.Name, event.ID, event.ResourceID)
+	log.Infof("Received event: Name: %s, Event Id: %s, ResourceId : %v", event.Name, event.ID, event.ResourceID)
 	return decodeEvent(event, "schedulerRequest")
 }
 

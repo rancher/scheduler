@@ -8,7 +8,7 @@ import (
 
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 )
 
@@ -88,12 +88,12 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 
 	defer s.setLastEvent()
 
-	logrus.Infof("Reserving %+v for %v. Force=%v", resourceRequests, hostID, force)
+	log.Infof("Reserving %+v for %v. Force=%v", resourceRequests, hostID, force)
 	h, ok := s.hosts[hostID]
 	if !ok {
 		// If the host isn't present, it is most likely that it hasn't been registered with the scheduler yet.
 		// When it is, this reservation will get counted by the initial population.
-		logrus.Warnf("Host %v not found for reserving %v. Skipping reservation", hostID, resourceRequests)
+		log.Warnf("Host %v not found for reserving %v. Skipping reservation", hostID, resourceRequests)
 		return nil, nil
 	}
 
@@ -106,7 +106,7 @@ func (s *Scheduler) ReserveResources(hostID string, force bool, resourceRequests
 		err := action.Reserve(s, resourceRequests, nil, h, force, data)
 		executedActions = append(executedActions, action)
 		if err != nil {
-			logrus.Error("Error happens in reserving resource. Rolling back the reservation")
+			log.Error("Error happens in reserving resource. Rolling back the reservation")
 			// rollback previous reserve actions
 			for _, exeAction := range executedActions {
 				exeAction.RollBack(s, resourceRequests, nil, h)
@@ -125,10 +125,10 @@ func (s *Scheduler) ReleaseResources(hostID string, resourceRequests []ResourceR
 
 	defer s.setLastEvent()
 
-	logrus.Infof("Releasing %+v for %v", resourceRequests, hostID)
+	log.Infof("Releasing %+v for %v", resourceRequests, hostID)
 	h, ok := s.hosts[hostID]
 	if !ok {
-		logrus.Infof("Host %v not found for releasing %v. Nothing to do.", hostID, resourceRequests)
+		log.Infof("Host %v not found for releasing %v. Nothing to do.", hostID, resourceRequests)
 		return nil
 	}
 	releaseActions := getReleaseActions()
@@ -184,7 +184,7 @@ func (s *Scheduler) RemoveHost(hostUUID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	logrus.Infof("Removing host %v.", hostUUID)
+	log.Infof("Removing host %v.", hostUUID)
 	delete(s.hosts, hostUUID)
 }
 
@@ -258,7 +258,8 @@ func (s *Scheduler) UpdateWithMetadata(force bool) (bool, error) {
 				if poolDoesntExist {
 					usedResource := usedResourcesByHost[h.UUID][resourceKey]
 					if err := s.CreateResourcePool(h.UUID, &ComputeResourcePool{Resource: resourceKey, Total: total, Used: usedResource}); err != nil {
-						logrus.Panicf("Received an error creating resource pool. This shouldn't have happened. Error: %v.", err)
+						log.Errorf("Received an error creating resource pool. This shouldn't have happened. Error: %v.", err)
+						panic(err)
 					}
 				}
 			}

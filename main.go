@@ -8,7 +8,8 @@ import (
 
 	"strconv"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
+	logserver "github.com/leodotcloud/log/server"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/go-rancher/v2"
@@ -20,11 +21,8 @@ import (
 
 var VERSION = "v0.1.0-dev"
 
-func init() {
-	logrus.SetOutput(os.Stdout)
-}
-
 func main() {
+	logserver.StartServerWithDefaults()
 	app := cli.NewApp()
 	app.Name = "scheduler"
 	app.Version = VERSION
@@ -48,7 +46,7 @@ func main() {
 
 func run(c *cli.Context) error {
 	if os.Getenv("RANCHER_DEBUG") == "true" {
-		logrus.SetLevel(logrus.DebugLevel)
+		log.SetLevelString("debug")
 	}
 
 	sleep := os.Getenv("CATTLE_SCHEDULER_SLEEPTIME")
@@ -66,7 +64,7 @@ func run(c *cli.Context) error {
 	ak := os.Getenv("CATTLE_ACCESS_KEY")
 	sk := os.Getenv("CATTLE_SECRET_KEY")
 	if url == "" || ak == "" || sk == "" {
-		logrus.Fatalf("Cattle connection environment variables not available. URL: %v, access key %v, secret key redacted.", url, ak)
+		log.Fatalf("Cattle connection environment variables not available. URL: %v, access key %v, secret key redacted.", url, ak)
 	}
 	apiClient, err := client.NewRancherClient(&client.ClientOpts{
 		Timeout:   t.Second * 30,
@@ -97,16 +95,16 @@ func run(c *cli.Context) error {
 	go func() {
 		for {
 			t.Sleep(t.Minute * 3)
-			logrus.Info("Syncing scheduler information with rancher metadata")
+			log.Info("Syncing scheduler information with rancher metadata")
 			for {
 				ok, err := scheduler.UpdateWithMetadata(true)
 				if err != nil {
-					logrus.Warnf("Error syncing with metadata: %v", err)
+					log.Warnf("Error syncing with metadata: %v", err)
 					break
 				}
 
 				if !ok {
-					logrus.Infof("Delaying metadata sync by 5 seconds since scheduler is actively handling events.")
+					log.Infof("Delaying metadata sync by 5 seconds since scheduler is actively handling events.")
 					t.Sleep(t.Second * 5)
 					continue
 				}
@@ -117,7 +115,7 @@ func run(c *cli.Context) error {
 	}()
 
 	err = <-exit
-	logrus.Errorf("Exiting scheduler with error: %v", err)
+	log.Errorf("Exiting scheduler with error: %v", err)
 	return err
 }
 
@@ -141,7 +139,7 @@ func startHealthCheck(listen int, md metadata.Client) error {
 			http.Error(w, "Metadata and dns is unreachable", http.StatusNotFound)
 		}
 	})
-	logrus.Infof("Listening for health checks on 0.0.0.0:%d/healthcheck", listen)
+	log.Infof("Listening for health checks on 0.0.0.0:%d/healthcheck", listen)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", listen), nil)
 	return err
 }

@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	"github.com/pkg/errors"
 )
 
@@ -31,7 +31,7 @@ func (c PortFilter) Filter(scheduler *Scheduler, resourceRequests []ResourceRequ
 	for _, host := range hosts {
 		portPool, ok := scheduler.hosts[host].pools["portReservation"].(*PortResourcePool)
 		if !ok {
-			logrus.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", host, resourceRequests)
+			log.Warnf("Pool portReservation for host %v not found for reserving %v. Skipping pritization", host, resourceRequests)
 		}
 		qualified := true
 		for _, request := range resourceRequests {
@@ -58,7 +58,7 @@ func (p *PortReserveAction) Reserve(scheduler *Scheduler, requests []ResourceReq
 	for _, rr := range requests {
 		pool, ok := host.pools[rr.GetResourceType()]
 		if !ok {
-			logrus.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.GetResourceType(), host.id, rr)
+			log.Warnf("Pool %v for host %v not found for reserving %v. Skipping reservation", rr.GetResourceType(), host.id, rr)
 			continue
 		}
 		PoolType := pool.GetPoolType()
@@ -67,7 +67,7 @@ func (p *PortReserveAction) Reserve(scheduler *Scheduler, requests []ResourceReq
 			request := rr.(PortBindingResourceRequest)
 			result, e := PortReserve(pool, request)
 			p.portsRollback = append(p.portsRollback, result)
-			logrus.Debugf("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
+			log.Debugf("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
 			if e != nil && !force {
 				return e
 			}
@@ -89,7 +89,7 @@ func (p *PortReserveAction) RollBack(scheduler *Scheduler, requests []ResourceRe
 					port := portReserved[publicPort].(int64)
 					prot := portReserved[protocol].(string)
 					pool.ReleasePort(ip, port, prot, "")
-					logrus.Infof("Roll back ip [%v] and port [%v]", ip, port)
+					log.Infof("Roll back ip [%v] and port [%v]", ip, port)
 				}
 			}
 		}
@@ -103,7 +103,7 @@ func (p PortReleaseAction) Release(scheduler *Scheduler, requests []ResourceRequ
 	for _, rr := range requests {
 		p, ok := host.pools[rr.GetResourceType()]
 		if !ok {
-			logrus.Infof("Host %v doesn't have resource pool %v. Nothing to do.", host.id, rr.GetResourceType())
+			log.Infof("Host %v doesn't have resource pool %v. Nothing to do.", host.id, rr.GetResourceType())
 			continue
 		}
 		PoolType := p.GetPoolType()
@@ -111,7 +111,7 @@ func (p PortReleaseAction) Release(scheduler *Scheduler, requests []ResourceRequ
 			pool := p.(*PortResourcePool)
 			request := rr.(PortBindingResourceRequest)
 			PortRelease(pool, request)
-			logrus.Infof("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
+			log.Infof("Host-UUID %v, PortPool Map tcp %v, PortPool Map udp %v, Ghost Map tcp %v, Ghost Map udp %v", host.id, pool.PortBindingMapTCP, pool.PortBindingMapUDP, pool.GhostMapTCP, pool.GhostMapUDP)
 		}
 	}
 }
@@ -150,14 +150,14 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 			}
 			if _, ok := ghostMap[ip]; !ok {
 				ghostMap[ip] = map[int64]string{}
-				logrus.Infof("Creating ghost map for IP %v on protocol %v", ip, protocol)
+				log.Infof("Creating ghost map for IP %v on protocol %v", ip, protocol)
 				ghostMap[ip][port] = instanceUUID
-				logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
+				log.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
 				return nil
 			}
 			if ghostMap[ip][port] == "" {
 				ghostMap[ip][port] = instanceUUID
-				logrus.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
+				log.Infof("Port %v is reserved for IP %v for ghost map on protocol %v", port, ip, protocol)
 				return nil
 			}
 			if instanceUUID == ghostMap[ip][port] {
@@ -206,7 +206,7 @@ func (p *PortResourcePool) ReserveIPPort(ip string, port int64, protocol string,
 			}
 		}
 		portMap[ip][port] = instanceUUID
-		logrus.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
+		log.Infof("Port %v is reserved for IP %v on protocol %v", port, ip, protocol)
 		return nil
 	}
 	if instanceUUID == portMap[ip][port] {
@@ -228,12 +228,12 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string, u
 	if _, ok := portMap[ip]; ok {
 		if portMap[ip][port] == uuid || uuid == "" {
 			delete(portMap[ip], port)
-			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+			log.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
 		}
 	} else if _, ok := ghostMap[ip]; ok {
 		if ghostMap[ip][port] == uuid || uuid == "" {
 			delete(ghostMap[ip], port)
-			logrus.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
+			log.Infof("Port %v is released on IP %v on protocol %v", port, ip, protocol)
 		}
 	}
 	if ip == defaultIP {
@@ -241,13 +241,13 @@ func (p *PortResourcePool) ReleasePort(ip string, port int64, protocol string, u
 		for nip := range portMap {
 			if portMap[nip][port] == uuid || uuid == "" {
 				delete(portMap[nip], port)
-				logrus.Infof("Port %v is released on IP %v on protocol %v", port, nip, protocol)
+				log.Infof("Port %v is released on IP %v on protocol %v", port, nip, protocol)
 			}
 		}
 		for gip := range ghostMap {
 			if ghostMap[gip][port] == uuid || uuid == "" {
 				delete(ghostMap[gip], port)
-				logrus.Infof("Port %v is released on IP %v on protocol %v", port, gip, protocol)
+				log.Infof("Port %v is released on IP %v on protocol %v", port, gip, protocol)
 			}
 		}
 	}
@@ -380,7 +380,7 @@ func PortReserve(pool *PortResourcePool, request PortBindingResourceRequest) (ma
 					}
 					port := findRandomPort(portMap)
 					portMap[port] = request.ResourceUUID
-					logrus.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
+					log.Infof("Public port %v reserved for ip address %s on protocol %v", port, ip, spec.Protocol)
 					result := map[string]interface{}{}
 					result[allocatedIP] = ip
 					result[publicPort] = port

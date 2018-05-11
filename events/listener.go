@@ -1,7 +1,7 @@
 package events
 
 import (
-	"github.com/Sirupsen/logrus"
+	"github.com/leodotcloud/log"
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/event-subscriber/locks"
 	"github.com/rancher/go-rancher/v2"
@@ -9,7 +9,7 @@ import (
 )
 
 func ConnectToEventStream(cattleURL, accessKey, secretKey string, scheduler *scheduler.Scheduler) error {
-	logrus.Info("Connecting to cattle event stream.")
+	log.Info("Connecting to cattle event stream.")
 	handler := &schedulingHandler{
 		scheduler: scheduler,
 	}
