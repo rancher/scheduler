@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/leodotcloud/log"
 	"github.com/pkg/errors"
+	"github.com/rancher/log"
 )
 
 const (

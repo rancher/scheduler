@@ -8,8 +8,8 @@ import (
 
 	"reflect"
 
-	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/log"
 )
 
 const (

@@ -3,7 +3,7 @@ package scheduler
 import (
 	"bytes"
 	"fmt"
-	"github.com/leodotcloud/log"
+	"github.com/rancher/log"
 )
 
 // ComputeFilter define a filter based on cpu, memory and instance number
