@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/go-rancher/v2"
+	"github.com/rancher/log"
 	"github.com/rancher/scheduler/scheduler"
 )
 

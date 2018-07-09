@@ -8,11 +8,11 @@ import (
 
 	"strconv"
 
-	"github.com/leodotcloud/log"
-	logserver "github.com/leodotcloud/log/server"
 	"github.com/pkg/errors"
 	"github.com/rancher/go-rancher-metadata/metadata"
 	"github.com/rancher/go-rancher/v2"
+	"github.com/rancher/log"
+	logserver "github.com/rancher/log/server"
 	"github.com/rancher/scheduler/events"
 	"github.com/rancher/scheduler/resourcewatchers"
 	"github.com/rancher/scheduler/scheduler"
@@ -121,14 +121,18 @@ func run(c *cli.Context) error {
 
 func startHealthCheck(listen int, md metadata.Client) error {
 	http.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
+		var errMsg string
 		healthy := true
 		_, err := md.GetVersion()
 		if err != nil {
 			healthy = false
+			errMsg = fmt.Sprintf("error fetching metadata version: %v", err)
 		}
 		cattleURL := os.Getenv("CATTLE_URL")
 		resp, err := http.Get(cattleURL[:len(cattleURL)-2] + "ping")
 		if err != nil {
+			errMsg = fmt.Sprintf("%v unable to reach rancher/server: %v", errMsg, err)
+			log.Errorf("failed healtcheck: %v", errMsg)
 			http.Error(w, "Rancher server is unreachable", http.StatusNotFound)
 			return
 		}
@@ -136,6 +140,7 @@ func startHealthCheck(listen int, md metadata.Client) error {
 		if healthy {
 			fmt.Fprint(w, "ok")
 		} else {
+			log.Errorf("failed healtcheck: %v", errMsg)
 			http.Error(w, "Metadata and dns is unreachable", http.StatusNotFound)
 		}
 	})

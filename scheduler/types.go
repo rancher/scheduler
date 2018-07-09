@@ -1,8 +1,8 @@
 package scheduler
 
 import (
-	"github.com/leodotcloud/log"
 	"github.com/rancher/go-rancher-metadata/metadata"
+	"github.com/rancher/log"
 )
 
 type ResourceUpdater interface {

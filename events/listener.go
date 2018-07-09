@@ -1,10 +1,10 @@
 package events
 
 import (
-	"github.com/leodotcloud/log"
 	revents "github.com/rancher/event-subscriber/events"
 	"github.com/rancher/event-subscriber/locks"
 	"github.com/rancher/go-rancher/v2"
+	"github.com/rancher/log"
 	"github.com/rancher/scheduler/scheduler"
 )
 
