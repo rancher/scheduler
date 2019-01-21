@@ -109,25 +109,26 @@ func (w *metadataWatcher) updateFromMetadata(mdVersion string) {
 		if err != nil {
 			w.checkError(err)
 		}
-		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
-		if poolDoesntExist {
-			w.resourceUpdater.CreateResourcePool(h.UUID, portPool)
-		} else if w.previousIPs[h.UUID] != h.Labels[ipLabel] {
-			portPool.ShouldUpdate = true
-			w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
+		if portPool != nil {
+			poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
+			if poolDoesntExist {
+				w.resourceUpdater.CreateResourcePool(h.UUID, portPool)
+			} else if w.previousIPs[h.UUID] != h.Labels[ipLabel] {
+				portPool.ShouldUpdate = true
+				w.resourceUpdater.UpdateResourcePool(h.UUID, portPool)
+			}
+			w.previousIPs[h.UUID] = h.Labels[ipLabel]
 		}
-		w.previousIPs[h.UUID] = h.Labels[ipLabel]
 
 		// updating label pool
 		labelPool := &scheduler.LabelPool{
 			Resource: hostLabels,
 			Labels:   h.Labels,
 		}
-		poolDoesntExist = !w.resourceUpdater.UpdateResourcePool(h.UUID, labelPool)
+		poolDoesntExist := !w.resourceUpdater.UpdateResourcePool(h.UUID, labelPool)
 		if poolDoesntExist {
 			w.resourceUpdater.CreateResourcePool(h.UUID, labelPool)
 		}
-
 	}
 
 	for uuid := range w.knownHosts {
